@@ -1,7 +1,7 @@
 USE GoogleDrive;
 GO
 
---Home
+
 --get user information
 select 
 	u.Name as UserName,
@@ -10,13 +10,40 @@ select
 from [User] u
 where u.id = 1;
 
+--get user setting
+select 
+	u.Name as UserName,
+	s.SettingKey,
+	s.SettingValue
+from SettingUser su
+join [User] u on su.UserId = u.Id
+join Setting s on su.SettingId = s.Id
+where u.Id =1
+
+--Home
+--get recommend folder/file
+select top 10
+	r.Id,
+	case
+		when r.ObjectTypeId = 1 then f.Name
+		else fi.Name
+	end as [Name],
+	r.Log,
+	r.DateTime
+from Recent r
+left join Folder f on f.Id = r.ObjectId and r.ObjectTypeId = 1
+left join [File] fi on fi.Id = r.ObjectId and r.ObjectTypeId = 2
+join [User] u on r.UserId = u.Id
+where u.Id = 1
+order by r.DateTime DESC;
 
 --My Drive
 --get my folder
 select
 	f.Name as FolderName,
 	f.Path as FolderPath,
-	f.UpdatedAt as FolderUpdateTime
+	f.UpdatedAt as FolderUpdateTime,
+	f.Size
 from Folder f
 join [User] u on f.OwnerId = u.Id
 where u.id = 1
@@ -28,23 +55,14 @@ select
 	f.Name as [FileName],
 	f.Path as FilePath,
 	f.ModifiedDate as FileUpdateTime,
-	ft.Name as FileType
+	ft.Name as FileType,
+	f.Size
 from [File] f
 join [User] u on f.OwnerId = u.Id
 join FileType ft on f.FileTypeId = ft.Id
 where u.id = 1
 	and f.Status = 'active'
 order by f.ModifiedDate;
-
---get user setting
-select 
-	u.Name as UserName,
-	s.SettingKey,
-	s.SettingValue
-from SettingUser su
-join [User] u on su.UserId = u.Id
-join Setting s on su.SettingId = s.Id
-where u.Id =1
 
 --Starred
 --get starred
@@ -64,23 +82,7 @@ LEFT JOIN [File] fi ON fo.ObjectId = fi.Id AND fo.ObjectTypeId = 2
 WHERE fo.OwnerId = 1
 ORDER BY ot.Name;
 
---get recommend folder/file
-select
-	r.Id,
-	case
-		when r.ObjectTypeId = 1 then f.Name
-		else fi.Name
-	end as [Name],
-	r.Log,
-	r.DateTime
-from Recent r
-left join Folder f on f.Id = r.ObjectId and r.ObjectTypeId = 1
-left join [File] fi on fi.Id = r.ObjectId and r.ObjectTypeId = 2
-join [User] u on r.UserId = u.Id
-where u.Id = 1
-order by r.DateTime DESC;
-
-
+--Recent
 --get recent
 SELECT 
     r.Id,
@@ -102,6 +104,7 @@ JOIN FileType ft ON fi.FileTypeId = ft.Id
 WHERE r.UserId = 1
 ORDER BY r.DateTime DESC;
 
+--Shared with me
 --get shared with me
 SELECT 
     s.ObjectId,
@@ -127,6 +130,7 @@ WHERE su.UserId = 1
   AND s.ExpiresAt > GETDATE()
 ORDER BY s.CreatedAt DESC;
 
+--Trash
 --get trash
 select 
 	t.ObjectId,
@@ -144,6 +148,7 @@ left join [File] fi on t.ObjectId = fi.Id and t.ObjectTypeId =2
 where t.UserId = 1
 order by t.RemovedDateTime DESC;
 
+--Storage	
 --get storage
 select
 	u.Capacity,
@@ -160,3 +165,4 @@ select
 from [File] f
 join [User] u on f.OwnerId = u.Id
 order by f.Size DESC;
+
