@@ -11,14 +11,14 @@ BEGIN
 
     -- Delete existing SearchIndex rows for the inserted/updated files
     DELETE FROM SearchIndex
-    WHERE ObjectId IN (SELECT FileId FROM inserted)
-    AND ObjectTypeId = 1; -- File
+    WHERE ObjectId IN (SELECT Id FROM inserted)
+    AND ObjectTypeId = 2; -- File
 
     -- Insert new SearchIndex rows with tokenized data from name and content
     WITH Tokenized AS (
         SELECT 
-            i.FileId AS ObjectId,
-            1 AS ObjectTypeId, -- File
+            i.Id AS ObjectId,
+            2 AS ObjectTypeId, -- File
             LOWER(t.value) AS Term, -- Case-insensitive terms
             COUNT(*) AS TermFrequency,
             STRING_AGG(CAST(t.rn AS NVARCHAR), ',') AS TermPositions,
@@ -32,7 +32,7 @@ BEGIN
                 (SELECT COUNT(*) FROM STRING_SPLIT(REPLACE(REPLACE(i.Name, '.', ' '), '-', ' '), ' ') WHERE value <> '') +
                 ISNULL((SELECT SUM(CAST(LEN(fc.ContentChunk) - LEN(REPLACE(fc.ContentChunk, ' ', '')) + 1 AS BIGINT))
                         FROM FileContent fc
-                        WHERE fc.FileId = i.FileId
+                        WHERE fc.FileId = i.Id
                         AND fc.ContentChunk IS NOT NULL), 0) AS DocLength
             FROM STRING_SPLIT(REPLACE(REPLACE(i.Name, '.', ' '), '-', ' '), ' ')
             WHERE value <> ''
@@ -44,15 +44,15 @@ BEGIN
                 (SELECT COUNT(*) FROM STRING_SPLIT(REPLACE(REPLACE(i.Name, '.', ' '), '-', ' '), ' ') WHERE value <> '') +
                 ISNULL((SELECT SUM(CAST(LEN(fc2.ContentChunk) - LEN(REPLACE(fc2.ContentChunk, ' ', '')) + 1 AS BIGINT))
                         FROM FileContent fc2
-                        WHERE fc2.FileId = i.FileId
+                        WHERE fc2.FileId = i.Id
                         AND fc2.ContentChunk IS NOT NULL), 0) AS DocLength
             FROM FileContent fc
             CROSS APPLY STRING_SPLIT(REPLACE(REPLACE(REPLACE(fc.ContentChunk, '.', ' '), ',', ' '), '-', ' '), ' ')
-            WHERE fc.FileId = i.FileId
+            WHERE fc.FileId = i.Id
             AND fc.ContentChunk IS NOT NULL
             AND value <> ''
         ) t
-        GROUP BY i.FileId, LOWER(t.value), t.DocLength
+        GROUP BY i.Id, LOWER(t.value), t.DocLength
     )
     INSERT INTO SearchIndex (ObjectId, ObjectTypeId, Term, TermFrequency, DocumentLength, TermPositions)
     SELECT ObjectId, ObjectTypeId, Term, TermFrequency, DocumentLength, TermPositions
@@ -69,14 +69,14 @@ BEGIN
 
     -- Delete existing SearchIndex rows for the inserted/updated folders
     DELETE FROM SearchIndex
-    WHERE ObjectId IN (SELECT FolderId FROM inserted)
-    AND ObjectTypeId = 2; -- Folder
+    WHERE ObjectId IN (SELECT Id FROM inserted)
+    AND ObjectTypeId = 1; -- Folder
 
     -- Insert new SearchIndex rows with tokenized data
     WITH Tokenized AS (
         SELECT 
-            i.FolderId AS ObjectId,
-            2 AS ObjectTypeId, -- Folder
+            i.Id AS ObjectId,
+            1 AS ObjectTypeId, -- Folder
             LOWER(t.value) AS Term, -- Case-insensitive terms
             COUNT(*) AS TermFrequency,
             STRING_AGG(CAST(t.rn AS NVARCHAR), ',') AS TermPositions,
@@ -90,12 +90,10 @@ BEGIN
             FROM STRING_SPLIT(i.Name, ' ')
             WHERE value <> ''
         ) t
-        GROUP BY i.FolderId, LOWER(t.value), t.DocLength
+        GROUP BY i.Id, LOWER(t.value), t.DocLength
     )
     INSERT INTO SearchIndex (ObjectId, ObjectTypeId, Term, TermFrequency, DocumentLength, TermPositions)
     SELECT ObjectId, ObjectTypeId, Term, TermFrequency, DocumentLength, TermPositions
     FROM Tokenized;
 END;
 GO
-
-
