@@ -68,6 +68,7 @@ CREATE TABLE Folder (
     ParentId INT,
     OwnerId INT NOT NULL,
     Name NVARCHAR(255) NOT NULL,
+    Size BIGINT,
     CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
     UpdatedAt DATETIME,
     Path VARCHAR(255),
@@ -204,11 +205,12 @@ GO
 CREATE TABLE Recent (
     Id INT PRIMARY KEY IDENTITY(1,1),
     UserId INT,
-    FileId INT,
+    ObjectId INT,
+    ObjectTypeId INT,
     Log NVARCHAR(MAX),
     DateTime DATETIME2,
     FOREIGN KEY (UserId) REFERENCES [User](Id),
-    FOREIGN KEY (FileId) REFERENCES [File](Id)
+    FOREIGN KEY (ObjectTypeId) REFERENCES ObjectType(Id),
 );
 GO
 

@@ -25,6 +25,17 @@ where u.id = 1
 	and f.Status = 'active'
 order by f.ModifiedDate;
 
+--get user setting
+select 
+	u.Name as UserName,
+	s.SettingKey,
+	s.SettingValue
+from SettingUser su
+join [User] u on su.UserId = u.Id
+join Setting s on su.SettingId = s.Id
+where u.Id =1
+
+
 --get user information
 select 
 	u.Name as UserName,
@@ -105,3 +116,12 @@ left join Folder f on t.ObjectId = f.Id and t.ObjectTypeId = 1
 left join [File] fi on t.ObjectId = fi.Id and t.ObjectTypeId =2
 where t.UserId = 1
 order by t.RemovedDateTime DESC;
+
+--get storage
+select
+	u.Capacity,
+	u.UsedCapacity,
+	u.Capacity - u.UsedCapacity as RemainingCapacity
+from [User] u
+where u.Id = 1
+order by RemainingCapacity DESC;

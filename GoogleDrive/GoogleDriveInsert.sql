@@ -3,6 +3,7 @@ USE GoogleDrive;
 GO
 
 
+
 -- 1. Populate User table (1000 rows)
 INSERT INTO [User] (Name, Email, PasswordHash, CreatedAt, LastLogin, UsedCapacity, Capacity)
 SELECT TOP 1000
@@ -38,36 +39,39 @@ CREATE TABLE #TempFolder (
     CreatedAt DATETIME,
     UpdatedAt DATETIME,
     Path NVARCHAR(255),
-    Status NVARCHAR(50)
+    Status NVARCHAR(50),
+    Size BIGINT
 );
 
 -- Insert top-level folders (200 rows)
-INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status)
+INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size)
 SELECT TOP 200
-    n,
+    ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS Id,
     NULL,
     u.Id,
-    'Folder' + CAST(n AS NVARCHAR(255)),
+    'Folder' + CAST(ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS NVARCHAR(255)),
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()),
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()),
-    '/' + CAST(n AS NVARCHAR(255)),
-    CASE WHEN n % 10 = 0 THEN 'archived' ELSE 'active' END
+    '/' + CAST(ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS NVARCHAR(255)),
+    CASE WHEN ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) % 10 = 0 THEN 'archived' ELSE 'active' END,
+    0 -- Placeholder; will update Size later
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN [User] u
 WHERE u.Id <= 1000 AND n <= 200;
 
 -- Insert child folders (800 rows)
-INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status)
+INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size)
 SELECT TOP 800
-    n + 200,
+    (ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 200) AS Id,
     (SELECT TOP 1 Id FROM #TempFolder WHERE Id <= 200 ORDER BY NEWID()),
     u.Id,
-    'Folder' + CAST(n + 200 AS NVARCHAR(255)),
+    'Folder' + CAST((ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 200) AS NVARCHAR(255)),
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()),
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()),
     '',
-    CASE WHEN n % 10 = 0 THEN 'archived' ELSE 'active' END
+    CASE WHEN ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) % 10 = 0 THEN 'archived' ELSE 'active' END,
+    0 -- Placeholder; will update Size later
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN [User] u
@@ -95,10 +99,16 @@ FROM #TempFolder tf
 INNER JOIN FolderHierarchy fh ON tf.Id = fh.Id
 WHERE tf.ParentId IS NOT NULL;
 
+-- Enable IDENTITY_INSERT for Folder table
+SET IDENTITY_INSERT Folder ON;
+
 -- Insert into actual Folder table
-INSERT INTO Folder (ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status)
-SELECT ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status
+INSERT INTO Folder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size)
+SELECT Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size
 FROM #TempFolder;
+
+-- Disable IDENTITY_INSERT
+SET IDENTITY_INSERT Folder OFF;
 
 DROP TABLE #TempFolder;
 GO
@@ -128,24 +138,44 @@ FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN [User] u
 CROSS JOIN Folder f
-WHERE u.Id <= 1000 AND f.Id <= 1000 AND n <= 1000;
+WHERE u.Id <= 1000 AND f.Id <= 1000 AND f.Status = 'active' AND n <= 1000;
+GO
+
+-- Update Folder.Size based on sum of File.Size
+UPDATE Folder
+SET Size = (
+    SELECT COALESCE(SUM(f.Size), 0)
+    FROM [File] f
+    WHERE f.FolderId = Folder.Id
+      AND f.Status = 'active'
+)
+WHERE Status = 'active';
 GO
 
 -- 7. Populate Share table (1000 rows)
 INSERT INTO Share (Sharer, ObjectId, ObjectTypeId, CreatedAt, ExpiresAt)
 SELECT TOP 1000
     u.Id,
-    COALESCE(
-        (SELECT TOP 1 Id FROM Folder WHERE Id <= 1000 ORDER BY NEWID()),
-        (SELECT TOP 1 Id FROM [File] WHERE Id <= 1000 ORDER BY NEWID())
-    ),
+    (SELECT TOP 1 Id FROM (
+        SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
+        UNION
+        SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+    ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END 
+    ORDER BY NEWID()) AS ObjectId,
     CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END,
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()),
     DATEADD(DAY, ABS(CHECKSUM(NEWID()) % 30), GETDATE())
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN [User] u
-WHERE u.Id <= 1000 AND n <= 1000;
+WHERE u.Id <= 1000 AND n <= 1000
+    AND EXISTS (
+        SELECT 1 FROM (
+            SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
+            UNION
+            SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+        ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
+    );
 GO
 
 -- 8. Populate SharedUser table (1000 rows)
@@ -158,7 +188,7 @@ FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN Share s
 CROSS JOIN [User] u
-WHERE s.Id <= 1000 AND u.Id <= 1000 AND u.Id != s.Sharer AND n <= 1000;
+WHERE s.Id <= 1000 AND u.Id != s.Sharer AND n <= 1000;
 GO
 
 -- 9. Populate FileVersion table (1000 rows)
@@ -182,10 +212,12 @@ GO
 -- 10. Populate Trash table (1000 rows)
 INSERT INTO Trash (ObjectId, ObjectTypeId, RemovedDatetime, UserId, IsPermanent)
 SELECT TOP 1000
-    COALESCE(
-        (SELECT TOP 1 Id FROM Folder WHERE Id <= 1000 ORDER BY NEWID()),
-        (SELECT TOP 1 Id FROM [File] WHERE Id <= 1000 ORDER BY NEWID())
-    ),
+    (SELECT TOP 1 Id FROM (
+        SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
+        UNION
+        SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+    ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END 
+    ORDER BY NEWID()) AS ObjectId,
     CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END,
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()),
     u.Id,
@@ -193,7 +225,14 @@ SELECT TOP 1000
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN [User] u
-WHERE u.Id <= 1000 AND n <= 1000;
+WHERE u.Id <= 1000 AND n <= 1000
+    AND EXISTS (
+        SELECT 1 FROM (
+            SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
+            UNION
+            SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+        ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
+    );
 GO
 
 -- 11. Populate Product table (4 rows)
@@ -246,29 +285,53 @@ GO
 INSERT INTO FavoriteObject (OwnerId, ObjectId, ObjectTypeId)
 SELECT TOP 1000
     u.Id,
-    COALESCE(
-        (SELECT TOP 1 Id FROM Folder WHERE Id <= 1000 ORDER BY NEWID()),
-        (SELECT TOP 1 Id FROM [File] WHERE Id <= 1000 ORDER BY NEWID())
-    ),
+    (SELECT TOP 1 Id FROM (
+        SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
+        UNION
+        SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+    ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END 
+    ORDER BY NEWID()) AS ObjectId,
     CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN [User] u
-WHERE u.Id <= 1000 AND n <= 1000;
+WHERE u.Id <= 1000 AND n <= 1000
+    AND EXISTS (
+        SELECT 1 FROM (
+            SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
+            UNION
+            SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+        ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
+    );
 GO
 
 -- 16. Populate Recent table (1000 rows)
-INSERT INTO Recent (UserId, FileId, Log, DateTime)
+INSERT INTO Recent (UserId, ObjectId, ObjectTypeId, Log, DateTime)
 SELECT TOP 1000
     u.Id,
-    f.Id,
-    'Accessed file: File' + CAST(f.Id AS NVARCHAR(255)),
+    (SELECT TOP 1 Id FROM (
+        SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
+        UNION
+        SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+    ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END 
+    ORDER BY NEWID()) AS ObjectId,
+    CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END,
+    CASE 
+        WHEN n % 2 = 0 THEN 'Accessed folder: Folder' + CAST((SELECT TOP 1 Id FROM Folder WHERE Id <= 1000 AND Status = 'active' ORDER BY NEWID()) AS NVARCHAR(255))
+        ELSE 'Accessed file: File' + CAST((SELECT TOP 1 Id FROM [File] WHERE Id <= 1000 AND Status = 'active' ORDER BY NEWID()) AS NVARCHAR(255))
+    END,
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE())
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN [User] u
-CROSS JOIN [File] f
-WHERE u.Id <= 1000 AND f.Id <= 1000 AND n <= 1000;
+WHERE u.Id <= 1000 AND n <= 1000
+    AND EXISTS (
+        SELECT 1 FROM (
+            SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
+            UNION
+            SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+        ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
+    );
 GO
 
 -- 17. Populate SearchHistory table (1000 rows)
@@ -367,13 +430,11 @@ SELECT TOP 1000
 FROM (
     SELECT TOP 500 Id AS ObjectId, 1 AS ObjectTypeId
     FROM Folder
-    WHERE Id <= 1000
-    ORDER BY NEWID()
+    WHERE Id <= 1000 AND Status = 'active'
     UNION
     SELECT TOP 500 Id AS ObjectId, 2 AS ObjectTypeId
     FROM [File]
-    WHERE Id <= 1000
-    ORDER BY NEWID()
+    WHERE Id <= 1000 AND Status = 'active'
 ) AS Objects;
 GO
 

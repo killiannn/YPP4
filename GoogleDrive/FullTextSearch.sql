@@ -97,3 +97,64 @@ BEGIN
     FROM Tokenized;
 END;
 GO
+
+CREATE OR ALTER TRIGGER trg_FileSizeUpdate
+ON [File]
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Update Folder.Size for affected folders (from inserted or deleted files)
+    UPDATE Folder
+    SET Size = (
+        SELECT COALESCE(SUM(f.Size), 0)
+        FROM [File] f
+        WHERE f.FolderId = Folder.Id
+          AND f.Status = 'active'
+    )
+    WHERE Folder.Id IN (
+        SELECT FolderId FROM inserted
+        UNION
+        SELECT FolderId FROM deleted
+    )
+    AND Folder.Status = 'active';
+END;
+GO
+
+-- Optional trigger to log access events (if application doesn't insert directly)
+CREATE OR ALTER TRIGGER trg_LogObjectAccess
+ON [File]
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO Recent (UserId, ObjectId, ObjectTypeId, Log, DateTime)
+    SELECT 
+        i.OwnerId,
+        i.Id,
+        2, -- File
+        'Accessed file: ' + i.Name,
+        GETDATE()
+    FROM inserted i
+    WHERE i.ModifiedDate > (SELECT COALESCE(MAX(ModifiedDate), '1900-01-01') FROM deleted WHERE Id = i.Id);
+END;
+GO
+
+CREATE OR ALTER TRIGGER trg_LogFolderAccess
+ON Folder
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO Recent (UserId, ObjectId, ObjectTypeId, Log, DateTime)
+    SELECT 
+        i.OwnerId,
+        i.Id,
+        1, -- Folder
+        'Accessed folder: ' + i.Name,
+        GETDATE()
+    FROM inserted i
+    WHERE i.UpdatedAt > (SELECT COALESCE(MAX(UpdatedAt), '1900-01-01') FROM deleted WHERE Id = i.Id);
+END;
+GO
