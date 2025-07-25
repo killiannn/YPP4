@@ -124,11 +124,11 @@ select
 from SharedUser su
 join Share s on su.ShareId = s.Id
 join [User] u on su.Id = u.Id
-JOIN [User] u2 on s.Sharer = u2.Id
+join [User] u2 on s.Sharer = u2.Id
 join ObjectType ot on s.ObjectTypeId = ot.Id
 join Permission p on su.PermissionId = p.Id
-left join Folder f on s.ObjectId = f.Id AND s.ObjectTypeId = 1
-left join [File] fi on s.ObjectId = fi.Id AND s.ObjectTypeId = 2
+left join Folder f on s.ObjectId = f.Id and s.ObjectTypeId = 1
+left join [File] fi on s.ObjectId = fi.Id and s.ObjectTypeId = 2
 where su.UserId = 1
   and s.ExpiresAt > GETDATE()
 order by s.CreatedAt DESC;
@@ -180,7 +180,7 @@ from UserProduct up
 join [Product] p on up.ProductId = p.Id
 join [User] u on up.UserId = u.Id
 join Promotion pr on up.PromotionId = pr.Id
-where u.Id = 100
+where u.Id = 199
 
 --get users banned from me
 select 
@@ -192,3 +192,8 @@ from BannedUser bu
 JOIN [User] u on bu.BannedUserId = u.Id
 where bu.UserId = 1
 order by bu.BannedAt DESC;
+
+--get all subfolder of folder id 149
+select * 
+from Folder f
+where f.Path like '/149%'
