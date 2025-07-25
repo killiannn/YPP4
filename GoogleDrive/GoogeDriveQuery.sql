@@ -169,7 +169,7 @@ from [File] f
 join [User] u on f.OwnerId = u.Id
 order by f.Size DESC;
 
---select product bought by user 
+--get product bought by user 
 select 
 	p.Name as ProductName,
 	u.Name as UserName,
