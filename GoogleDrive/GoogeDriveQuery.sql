@@ -21,9 +21,11 @@ join Setting s on su.SettingId = s.Id
 where u.Id =1
 
 --Home
---get recommend folder/file
-select top 10
+--get suggested folder/file
+select top 3
 	r.Id,
+	ot.Name as [Type],
+	r.ObjectId,
 	case
 		when r.ObjectTypeId = 1 then f.Name
 		else fi.Name
@@ -34,6 +36,7 @@ from Recent r
 left join Folder f on f.Id = r.ObjectId and r.ObjectTypeId = 1
 left join [File] fi on fi.Id = r.ObjectId and r.ObjectTypeId = 2
 join [User] u on r.UserId = u.Id
+join ObjectType ot on r.ObjectTypeId = ot.Id
 where u.Id = 1
 order by r.DateTime DESC;
 
@@ -66,25 +69,25 @@ order by f.ModifiedDate;
 
 --Starred
 --get starred
-SELECT 
+select
     fo.ObjectId,
     fo.ObjectTypeId,
-    ot.Name AS ObjectType,
+    ot.Name as ObjectType,
 	case
 		when fo.ObjectTypeId = 1 then f.Name
 		else fi.Name 
 	end as [Name]
-FROM FavoriteObject fo
-JOIN [User] u ON fo.OwnerId = u.Id
-JOIN ObjectType ot ON fo.ObjectTypeId = ot.Id
-LEFT JOIN Folder f ON fo.ObjectId = f.Id AND fo.ObjectTypeId = 1
-LEFT JOIN [File] fi ON fo.ObjectId = fi.Id AND fo.ObjectTypeId = 2
-WHERE fo.OwnerId = 1
-ORDER BY ot.Name;
+from FavoriteObject fo
+join [User] u on fo.OwnerId = u.Id
+join ObjectType ot on fo.ObjectTypeId = ot.Id
+left join Folder f on fo.ObjectId = f.Id AND fo.ObjectTypeId = 1
+left join  [File] fi on fo.ObjectId = fi.Id AND fo.ObjectTypeId = 2
+where fo.OwnerId = 1
+order by ot.Name;
 
 --Recent
 --get recent
-SELECT 
+select
     r.Id,
     case
 		when r.ObjectTypeId = 1 then f.Name
@@ -94,41 +97,41 @@ SELECT
 		when r.ObjectTypeId = 1 then f.Path
 		else fi.Path
 	end as [Name],
-    ft.Name AS FileType,
-    r.DateTime AS LastAccessed
-FROM Recent r
-JOIN [User] u ON r.Id = u.Id
-LEFT JOIN Folder f ON f.Id = r.ObjectId and r.ObjectTypeId = 1
-LEFT JOIN [File] fi ON fi.Id = r.ObjectId and r.ObjectTypeId =2
-JOIN FileType ft ON fi.FileTypeId = ft.Id
-WHERE r.UserId = 1
-ORDER BY r.DateTime DESC;
+    ft.Name as FileType,
+    r.DateTime as LastAccessed
+from Recent r
+join [User] u on r.Id = u.Id
+left join Folder f on f.Id = r.ObjectId and r.ObjectTypeId = 1
+left join [File] fi on fi.Id = r.ObjectId and r.ObjectTypeId =2
+join FileType ft on fi.FileTypeId = ft.Id
+where r.UserId = 1
+order by r.DateTime DESC;
 
 --Shared with me
 --get shared with me
-SELECT 
+select 
     s.ObjectId,
     s.ObjectTypeId,
-    ot.Name AS ObjectType,
+    ot.Name as ObjectType,
 	case
 		when s.ObjectTypeId = 1 then f.Name
 		else fi.Name
 	end as [Name],
-    p.Name AS Permission,
-    u2.Name AS SharerName,
-    s.CreatedAt AS ShareCreated,
-    s.ExpiresAt AS ShareExpires
-FROM SharedUser su
-JOIN Share s ON su.ShareId = s.Id
-JOIN [User] u ON su.Id = u.Id
-JOIN [User] u2 ON s.Sharer = u2.Id
-JOIN ObjectType ot ON s.ObjectTypeId = ot.Id
-JOIN Permission p ON su.PermissionId = p.Id
-LEFT JOIN Folder f ON s.ObjectId = f.Id AND s.ObjectTypeId = 1
-LEFT JOIN [File] fi ON s.ObjectId = fi.Id AND s.ObjectTypeId = 2
-WHERE su.UserId = 1
-  AND s.ExpiresAt > GETDATE()
-ORDER BY s.CreatedAt DESC;
+    p.Name as Permission,
+    u2.Name as SharerName,
+    s.CreatedAt as ShareCreated,
+    s.ExpiresAt as ShareExpires
+from SharedUser su
+join Share s on su.ShareId = s.Id
+join [User] u on su.Id = u.Id
+JOIN [User] u2 on s.Sharer = u2.Id
+join ObjectType ot on s.ObjectTypeId = ot.Id
+join Permission p on su.PermissionId = p.Id
+left join Folder f on s.ObjectId = f.Id AND s.ObjectTypeId = 1
+left join [File] fi on s.ObjectId = fi.Id AND s.ObjectTypeId = 2
+where su.UserId = 1
+  and s.ExpiresAt > GETDATE()
+order by s.CreatedAt DESC;
 
 --Trash
 --get trash
@@ -166,3 +169,26 @@ from [File] f
 join [User] u on f.OwnerId = u.Id
 order by f.Size DESC;
 
+--select product bought by user 
+select 
+	p.Name as ProductName,
+	u.Name as UserName,
+	up.PayingDatetime,
+	up.EndDatetime,
+	pr.Name as PromotionName
+from UserProduct up
+join [Product] p on up.ProductId = p.Id
+join [User] u on up.UserId = u.Id
+join Promotion pr on up.PromotionId = pr.Id
+where u.Id = 100
+
+--get users banned from me
+select 
+    bu.BannedUserId,
+    u.Name as BannedUserName,
+    u.Email as BannedUserEmail,
+    bu.BannedAt
+from BannedUser bu
+JOIN [User] u on bu.BannedUserId = u.Id
+where bu.UserId = 1
+order by bu.BannedAt DESC;
