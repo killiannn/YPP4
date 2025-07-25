@@ -197,3 +197,8 @@ order by bu.BannedAt DESC;
 select * 
 from Folder f
 where f.Path like '/149%'
+
+SELECT TOP 10 ObjectId, ObjectTypeId, Term, TermFrequency, DocumentLength
+FROM SearchIndex
+WHERE Term IN ('folder1', 'file1', 'content')
+ORDER BY ObjectId;

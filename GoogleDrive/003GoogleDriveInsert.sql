@@ -418,33 +418,3 @@ CROSS JOIN [File] f
 WHERE f.Id <= 1000 AND n <= 1000;
 GO
 
--- 22. Populate SearchIndex table (1000 rows)
-INSERT INTO SearchIndex (ObjectId, ObjectTypeId, Term, TermFrequency, DocumentLength, TermPositions)
-SELECT TOP 1000
-    ObjectId,
-    ObjectTypeId,
-    'Term' + CAST(ROW_NUMBER() OVER (ORDER BY ObjectId, ObjectTypeId) AS NVARCHAR(255)),
-    ABS(CHECKSUM(NEWID()) % 10) + 1,
-    ABS(CHECKSUM(NEWID()) % 1000) + 1,
-    '[0,' + CAST(ABS(CHECKSUM(NEWID()) % 100) AS NVARCHAR(255)) + ']'
-FROM (
-    SELECT TOP 500 Id AS ObjectId, 1 AS ObjectTypeId
-    FROM Folder
-    WHERE Id <= 1000 AND Status = 'active'
-    UNION
-    SELECT TOP 500 Id AS ObjectId, 2 AS ObjectTypeId
-    FROM [File]
-    WHERE Id <= 1000 AND Status = 'active'
-) AS Objects;
-GO
-
--- 23. Populate TermIDF table (1000 rows)
-INSERT INTO TermIDF (Term, IDF, LastUpdated)
-SELECT TOP 1000
-    'Term' + CAST(n AS NVARCHAR(255)),
-    CAST(ABS(CHECKSUM(NEWID()) % 100) AS FLOAT) / 10,
-    DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE())
-FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
-      FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-WHERE n <= 1000;
-GO
