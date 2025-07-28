@@ -53,12 +53,12 @@ BEGIN
     DECLARE @DocumentFrequency FLOAT;
     DECLARE @IDF FLOAT;
 
-    -- Count total documents (files or folders) based on ObjectTypeId
+    -- Count total documents (files or folders) based on ObjectTypeId, only active
     SELECT @TotalDocuments = COUNT(*)
     FROM (
-        SELECT Id FROM [File] WHERE @ObjectTypeId = 2
+        SELECT Id FROM [File] WHERE @ObjectTypeId = 2 AND Status = 'active'
         UNION
-        SELECT Id FROM Folder WHERE @ObjectTypeId = 1
+        SELECT Id FROM Folder WHERE @ObjectTypeId = 1 AND Status = 'active'
     ) AS Documents;
 
     -- Count documents containing the term
@@ -175,5 +175,49 @@ BEGIN
     WHEN NOT MATCHED THEN
         INSERT (Term, IDF, LastUpdated)
         VALUES (source.Term, dbo.fn_CalculateIDF(source.Term, 1), GETDATE());
+END;
+GO
+
+CREATE OR ALTER TRIGGER trg_FileContentIndexing
+ON FileContent
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Delete existing SearchIndex rows for the affected files
+    DELETE FROM SearchIndex
+    WHERE ObjectId IN (SELECT FileId FROM inserted)
+        AND ObjectTypeId = 2;
+
+    -- Insert new SearchIndex rows for file content
+    INSERT INTO SearchIndex (ObjectId, ObjectTypeId, Term, TermFrequency, DocumentLength, TermPositions)
+    SELECT 
+        i.FileId AS ObjectId,
+        2 AS ObjectTypeId,
+        t.Term,
+        t.TermFrequency,
+        t.DocumentLength,
+        t.TermPositions
+    FROM inserted i
+    CROSS APPLY dbo.fn_TokenizeText(i.ContentChunk) t
+    WHERE i.ContentChunk IS NOT NULL;
+
+    -- Update TermIDF for affected terms (files only, ObjectTypeId = 2)
+    MERGE INTO TermIDF AS target
+    USING (
+        SELECT DISTINCT Term
+        FROM SearchIndex
+        WHERE ObjectId IN (SELECT FileId FROM inserted)
+            AND ObjectTypeId = 2
+    ) AS source
+    ON target.Term = source.Term
+    WHEN MATCHED THEN
+        UPDATE SET 
+            IDF = dbo.fn_CalculateIDF(source.Term, 2),
+            LastUpdated = GETDATE()
+    WHEN NOT MATCHED THEN
+        INSERT (Term, IDF, LastUpdated)
+        VALUES (source.Term, dbo.fn_CalculateIDF(source.Term, 2), GETDATE());
 END;
 GO

@@ -198,9 +198,10 @@ select *
 from Folder f
 where f.Path like '/161%'
 
---get 10 most relevant files from search
+--get 10 most relevant files from search key word
 SELECT TOP 10 s.ObjectId, s.ObjectTypeId, s.Term, t.IDF
 FROM SearchIndex s
 join TermIDF t on s.Term = t.Term
-WHERE s.Term IN ('folder1', 'file1', 'content')
-ORDER BY t.IDF;
+WHERE s.Term IN ('Report')
+ORDER BY t.IDF DESC;
+
