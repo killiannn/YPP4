@@ -2,6 +2,8 @@ USE GoogleDrive;
 GO
 
 
+
+
 --get user information
 select 
 	u.Name as UserName,
@@ -198,7 +200,8 @@ select *
 from Folder f
 where f.Path like '/149%'
 
-SELECT TOP 10 ObjectId, ObjectTypeId, Term, TermFrequency, DocumentLength
-FROM SearchIndex
-WHERE Term IN ('folder1', 'file1', 'content')
-ORDER BY ObjectId;
+SELECT TOP 10 s.ObjectId, s.ObjectTypeId, s.Term, s.TermFrequency, s.DocumentLength, t.IDF
+FROM SearchIndex s
+join TermIDF t on s.Term = t.Term
+WHERE s.Term IN ('folder1', 'file1', 'content')
+ORDER BY t.IDF;
