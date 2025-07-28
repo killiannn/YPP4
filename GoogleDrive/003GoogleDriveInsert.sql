@@ -62,6 +62,7 @@ VALUES ('folder'), ('file');
 GO
 
 -- 4. Populate Folder table (1000 rows with up to 3-4 subfolders)
+-- Updated Folder insert (1000 rows with up to 3-4 subfolders, balanced distribution in 4 batches)
 IF OBJECT_ID('tempdb..#TempFolder') IS NOT NULL DROP TABLE #TempFolder;
 CREATE TABLE #TempFolder (
     Id INT,
@@ -94,52 +95,58 @@ FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n
 CROSS JOIN [User] u
 WHERE u.Id <= 1000 AND n <= 200;
 
--- Insert subfolders (~800 rows, 1-4 per parent, balanced)
-WITH ParentFolders AS (
+-- Insert subfolders in 4 batches of 200, cycling through eligible parents
+DECLARE @BatchSize INT = 200;
+DECLARE @Batch INT = 1;
+DECLARE @StartId INT = 201;
+
+WHILE @Batch <= 4
+BEGIN
+    -- Create a temporary table to store eligible parents with their ranks
+    IF OBJECT_ID('tempdb..#ParentPool') IS NOT NULL DROP TABLE #ParentPool;
+    CREATE TABLE #ParentPool (Id INT, Level INT, ParentRank INT);
+    INSERT INTO #ParentPool (Id, Level, ParentRank)
     SELECT 
-        f.Id,
-        f.Level,
-        ROW_NUMBER() OVER (ORDER BY NEWID()) AS rn,
-        ABS(CHECKSUM(NEWID()) % 4) + 1 AS SubfolderCount -- Random 1-4 subfolders
-    FROM #TempFolder f
-    WHERE f.Status = 'active' AND f.Level < 4
-),
-SubfolderAssignments AS (
-    SELECT 
-        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 200 AS Id,
+        Id,
+        Level,
+        ROW_NUMBER() OVER (ORDER BY Id) AS ParentRank
+    FROM #TempFolder
+    WHERE Status = 'active' 
+      AND Level < 4 
+      AND COALESCE((SELECT COUNT(*) FROM #TempFolder tf WHERE tf.ParentId = #TempFolder.Id), 0) < 4;
+
+    -- Get the count of eligible parents
+    DECLARE @ParentCount INT;
+    SELECT @ParentCount = COUNT(*) FROM #ParentPool;
+
+    -- Insert batch of 200 subfolders
+    INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size, Level)
+    SELECT TOP (@BatchSize)
+        s.Id,
         p.Id AS ParentId,
         u.Id AS OwnerId,
-        'Folder' + CAST((ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 200) AS NVARCHAR(255)) AS Name,
+        'Folder' + CAST(s.Id AS NVARCHAR(255)) AS Name,
         DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()) AS CreatedAt,
         DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()) AS UpdatedAt,
         '' AS Path,
-        CASE WHEN ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) % 10 = 0 THEN 'archived' ELSE 'active' END AS Status,
+        CASE WHEN s.RowNum % 10 = 0 THEN 'archived' ELSE 'active' END AS Status,
         0 AS Size,
         p.Level + 1 AS Level
-    FROM ParentFolders p
+    FROM (
+        SELECT 
+            ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS RowNum,
+            ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + @StartId - 1 AS Id
+        FROM sys.objects s1 CROSS JOIN sys.objects s2
+        WHERE ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) <= @BatchSize
+    ) s
     CROSS JOIN [User] u
-    CROSS APPLY (
-        SELECT TOP (p.SubfolderCount) n
-        FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
-              FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-        WHERE n <= 4
-    ) sub
-    WHERE u.Id <= 1000
-)
-INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size, Level)
-SELECT TOP 800
-    Id,
-    ParentId,
-    OwnerId,
-    Name,
-    CreatedAt,
-    UpdatedAt,
-    Path,
-    Status,
-    Size,
-    Level
-FROM SubfolderAssignments
-ORDER BY Id;
+    JOIN #ParentPool p ON p.ParentRank = ((s.RowNum - 1) % @ParentCount + 1)
+    WHERE u.Id <= 1000;
+
+    DROP TABLE #ParentPool;
+    SET @StartId = @StartId + @BatchSize;
+    SET @Batch = @Batch + 1;
+END;
 
 -- Update paths for all folders
 WITH FolderHierarchy AS (
@@ -175,7 +182,6 @@ SET IDENTITY_INSERT Folder OFF;
 
 DROP TABLE #TempFolder;
 GO
-
 -- 5. Populate FileType table (4 rows)
 INSERT INTO FileType (Name, Icon)
 VALUES 
