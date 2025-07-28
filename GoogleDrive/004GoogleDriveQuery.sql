@@ -195,12 +195,13 @@ JOIN [User] u on bu.BannedUserId = u.Id
 where bu.UserId = 1
 order by bu.BannedAt DESC;
 
---get all subfolder of folder id 149
+--get all subfolder of folder id 161
 select * 
 from Folder f
-where f.Path like '/149%'
+where f.Path like '/161%'
 
-SELECT TOP 10 s.ObjectId, s.ObjectTypeId, s.Term, s.TermFrequency, s.DocumentLength, t.IDF
+--get 10 most relevant files from search
+SELECT TOP 10 s.ObjectId, s.ObjectTypeId, s.Term, t.IDF
 FROM SearchIndex s
 join TermIDF t on s.Term = t.Term
 WHERE s.Term IN ('folder1', 'file1', 'content')
