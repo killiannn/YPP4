@@ -1,3 +1,4 @@
+
 USE GoogleDrive;
 GO
 
@@ -5,7 +6,7 @@ GO
 EXEC sp_msforeachtable 'ALTER TABLE ? NOCHECK CONSTRAINT ALL';
 GO
 
--- Step 2: Truncate all tables in correct dependency order
+-- Step 2: Truncate all tables in dependency order
 TRUNCATE TABLE FileContent;
 TRUNCATE TABLE SettingUser;
 TRUNCATE TABLE [Session];
@@ -18,7 +19,7 @@ TRUNCATE TABLE SharedUser;
 TRUNCATE TABLE FileVersion;
 TRUNCATE TABLE Trash;
 TRUNCATE TABLE SearchIndex;
-TRUNCATE TABLE TermIDF;
+TRUNCATE TABLE TermBM25;
 TRUNCATE TABLE Share;
 TRUNCATE TABLE [File];
 TRUNCATE TABLE Folder;
@@ -31,7 +32,7 @@ TRUNCATE TABLE ObjectType;
 TRUNCATE TABLE [User];
 GO
 
--- Step 3: Re-enable all constraints
+-- Step 3: Re-enable all constraints (with validation, as tables are empty)
 EXEC sp_msforeachtable 'ALTER TABLE ? WITH CHECK CHECK CONSTRAINT ALL';
 GO
 
@@ -60,7 +61,7 @@ INSERT INTO ObjectType (Name)
 VALUES ('folder'), ('file');
 GO
 
--- 4. Populate Folder table (1000 rows with up to 3-4 subfolders)
+-- 4. Populate Folder table (1000 rows)
 IF OBJECT_ID('tempdb..#TempFolder') IS NOT NULL DROP TABLE #TempFolder;
 CREATE TABLE #TempFolder (
     Id INT,
@@ -71,14 +72,13 @@ CREATE TABLE #TempFolder (
     UpdatedAt DATETIME,
     Path NVARCHAR(255),
     Status NVARCHAR(50),
-    Size BIGINT,
-    Level INT
+    Size BIGINT
 );
 
--- Insert top-level folders (200 rows, Ids 1001-1200)
-INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size, Level)
+-- Insert top-level folders (200 rows)
+INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size)
 SELECT TOP 200
-    1000 + ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS Id,
+    ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS Id,
     NULL,
     u.Id,
     'Folder' + CAST(ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS NVARCHAR(255)),
@@ -86,116 +86,60 @@ SELECT TOP 200
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()),
     '/' + CAST(ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS NVARCHAR(255)),
     CASE WHEN ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) % 10 = 0 THEN 'archived' ELSE 'active' END,
-    0,
-    1
+    0 -- Placeholder; will update Size later
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN [User] u
 WHERE u.Id <= 1000 AND n <= 200;
 
--- Insert subfolders in 4 batches of 200, cycling through eligible parents
-DECLARE @BatchSize INT = 200;
-DECLARE @Batch INT = 1;
-DECLARE @StartId INT = 1201;
+-- Insert child folders (800 rows)
+INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size)
+SELECT TOP 800
+    (ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 200) AS Id,
+    (SELECT TOP 1 Id FROM #TempFolder WHERE Id <= 200 ORDER BY NEWID()),
+    u.Id,
+    'Folder' + CAST((ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 200) AS NVARCHAR(255)),
+    DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()),
+    DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()),
+    '',
+    CASE WHEN ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) % 10 = 0 THEN 'archived' ELSE 'active' END,
+    0 -- Placeholder; will update Size later
+FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
+      FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
+CROSS JOIN [User] u
+WHERE u.Id <= 1000 AND n <= 800;
 
-WHILE @Batch <= 4
-BEGIN
-    IF OBJECT_ID('tempdb..#ParentPool') IS NOT NULL DROP TABLE #ParentPool;
-    CREATE TABLE #ParentPool (Id INT, Level INT, ParentRank INT);
-    INSERT INTO #ParentPool (Id, Level, ParentRank)
-    SELECT 
-        Id,
-        Level,
-        ROW_NUMBER() OVER (ORDER BY Id) AS ParentRank
-    FROM #TempFolder
-    WHERE Status = 'active' 
-      AND Level < 4 
-      AND COALESCE((SELECT COUNT(*) FROM #TempFolder tf WHERE tf.ParentId = #TempFolder.Id), 0) < 4;
-
-    DECLARE @ParentCount INT;
-    SELECT @ParentCount = COALESCE(COUNT(*), 1) FROM #ParentPool;
-
-    WITH SubfolderRows AS (
-        SELECT 
-            ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS RowNum,
-            ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + @StartId - 1 AS Id
-        FROM sys.objects s1 CROSS JOIN sys.objects s2
-    )
-    INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size, Level)
-    SELECT TOP (@BatchSize)
-        s.Id,
-        CASE WHEN @ParentCount > 1 THEN p.Id ELSE NULL END AS ParentId,
-        u.Id AS OwnerId,
-        'Folder' + CAST(s.Id AS NVARCHAR(255)) AS Name,
-        DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()) AS CreatedAt,
-        DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()) AS UpdatedAt,
-        '' AS Path,
-        CASE WHEN s.RowNum % 10 = 0 THEN 'archived' ELSE 'active' END AS Status,
-        0 AS Size,
-        CASE WHEN @ParentCount > 1 THEN p.Level + 1 ELSE 1 END AS Level
-    FROM SubfolderRows s
-    CROSS JOIN [User] u
-    LEFT JOIN #ParentPool p ON p.ParentRank = ((s.RowNum - 1) % @ParentCount + 1)
-    WHERE s.RowNum <= @BatchSize AND u.Id <= 1000;
-
-    DROP TABLE #ParentPool;
-    SET @StartId = @StartId + @BatchSize;
-    SET @Batch = @Batch + 1;
-END;
-
--- Fallback: Insert remaining folders as top-level to reach 1000 total
-DECLARE @CurrentCount INT;
-SELECT @CurrentCount = COUNT(*) FROM #TempFolder;
-IF @CurrentCount < 1000
-BEGIN
-    INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size, Level)
-    SELECT TOP (1000 - @CurrentCount)
-        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + @CurrentCount + 1000 AS Id,
-        NULL AS ParentId,
-        u.Id AS OwnerId,
-        'Folder' + CAST((ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + @CurrentCount) AS NVARCHAR(255)) AS Name,
-        DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()) AS CreatedAt,
-        DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()) AS UpdatedAt,
-        '/' + CAST((ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + @CurrentCount) AS NVARCHAR(255)) AS Path,
-        CASE WHEN ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) % 10 = 0 THEN 'archived' ELSE 'active' END AS Status,
-        0 AS Size,
-        1 AS Level
-    FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
-          FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-    CROSS JOIN [User] u
-    WHERE u.Id <= 1000 AND n <= (1000 - @CurrentCount);
-END;
-
--- Update paths for all folders
+-- Update paths for child folders
 WITH FolderHierarchy AS (
     SELECT 
         Id,
         ParentId,
-        Path,
-        Level
+        Path
     FROM #TempFolder
     WHERE ParentId IS NULL
     UNION ALL
     SELECT 
         t.Id,
         t.ParentId,
-        CAST(f.Path + '/' + CAST(t.Id - 1000 AS NVARCHAR(255)) AS NVARCHAR(255)),
-        t.Level
+        CAST(f.Path + '/' + CAST(t.Id AS NVARCHAR(255)) AS NVARCHAR(255))
     FROM #TempFolder t
     INNER JOIN FolderHierarchy f ON t.ParentId = f.Id
 )
 UPDATE tf
 SET Path = fh.Path
 FROM #TempFolder tf
-INNER JOIN FolderHierarchy fh ON tf.Id = fh.Id;
+INNER JOIN FolderHierarchy fh ON tf.Id = fh.Id
+WHERE tf.ParentId IS NOT NULL;
 
 -- Enable IDENTITY_INSERT for Folder table
 SET IDENTITY_INSERT Folder ON;
 
+-- Insert into actual Folder table
 INSERT INTO Folder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size)
 SELECT Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size
 FROM #TempFolder;
 
+-- Disable IDENTITY_INSERT
 SET IDENTITY_INSERT Folder OFF;
 
 DROP TABLE #TempFolder;
@@ -210,7 +154,7 @@ VALUES
     ('video', 'video.png');
 GO
 
--- 6. Populate File table (1000 rows)
+-- 6. Populate [File] table (1000 rows)
 INSERT INTO [File] (FolderId, OwnerId, Size, Name, Path, FileTypeId, ModifiedDate, Status, CreatedAt)
 SELECT TOP 1000
     f.Id,
@@ -226,7 +170,7 @@ FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN [User] u
 CROSS JOIN Folder f
-WHERE u.Id <= 1000 AND f.Id <= 2000 AND f.Status = 'active' AND n <= 1000;
+WHERE u.Id <= 1000 AND f.Id <= 1000 AND f.Status = 'active' AND n <= 1000;
 GO
 
 -- Update Folder.Size based on sum of File.Size
@@ -245,7 +189,7 @@ INSERT INTO Share (Sharer, ObjectId, ObjectTypeId, CreatedAt, ExpiresAt)
 SELECT TOP 1000
     u.Id,
     (SELECT TOP 1 Id FROM (
-        SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 2000 AND Status = 'active'
+        SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
         UNION
         SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
     ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END 
@@ -259,7 +203,7 @@ CROSS JOIN [User] u
 WHERE u.Id <= 1000 AND n <= 1000
     AND EXISTS (
         SELECT 1 FROM (
-            SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 2000 AND Status = 'active'
+            SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
             UNION
             SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
         ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
@@ -301,7 +245,7 @@ GO
 INSERT INTO Trash (ObjectId, ObjectTypeId, RemovedDatetime, UserId, IsPermanent)
 SELECT TOP 1000
     (SELECT TOP 1 Id FROM (
-        SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 2000 AND Status = 'active'
+        SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
         UNION
         SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
     ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END 
@@ -316,7 +260,7 @@ CROSS JOIN [User] u
 WHERE u.Id <= 1000 AND n <= 1000
     AND EXISTS (
         SELECT 1 FROM (
-            SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 2000 AND Status = 'active'
+            SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
             UNION
             SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
         ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
@@ -374,7 +318,7 @@ INSERT INTO FavoriteObject (OwnerId, ObjectId, ObjectTypeId)
 SELECT TOP 1000
     u.Id,
     (SELECT TOP 1 Id FROM (
-        SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 2000 AND Status = 'active'
+        SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
         UNION
         SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
     ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END 
@@ -386,7 +330,7 @@ CROSS JOIN [User] u
 WHERE u.Id <= 1000 AND n <= 1000
     AND EXISTS (
         SELECT 1 FROM (
-            SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 2000 AND Status = 'active'
+            SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
             UNION
             SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
         ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
@@ -398,14 +342,14 @@ INSERT INTO Recent (UserId, ObjectId, ObjectTypeId, Log, DateTime)
 SELECT TOP 1000
     u.Id,
     (SELECT TOP 1 Id FROM (
-        SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 2000 AND Status = 'active'
+        SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
         UNION
         SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
     ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END 
     ORDER BY NEWID()) AS ObjectId,
     CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END,
     CASE 
-        WHEN n % 2 = 0 THEN 'Accessed folder: Folder' + CAST((SELECT TOP 1 Id FROM Folder WHERE Id <= 2000 AND Status = 'active' ORDER BY NEWID()) AS NVARCHAR(255))
+        WHEN n % 2 = 0 THEN 'Accessed folder: Folder' + CAST((SELECT TOP 1 Id FROM Folder WHERE Id <= 1000 AND Status = 'active' ORDER BY NEWID()) AS NVARCHAR(255))
         ELSE 'Accessed file: File' + CAST((SELECT TOP 1 Id FROM [File] WHERE Id <= 1000 AND Status = 'active' ORDER BY NEWID()) AS NVARCHAR(255))
     END,
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE())
@@ -415,7 +359,7 @@ CROSS JOIN [User] u
 WHERE u.Id <= 1000 AND n <= 1000
     AND EXISTS (
         SELECT 1 FROM (
-            SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 2000 AND Status = 'active'
+            SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
             UNION
             SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
         ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
@@ -434,7 +378,7 @@ CROSS JOIN [User] u
 WHERE u.Id <= 1000 AND n <= 1000;
 GO
 
--- 18. Populate Session table (1000 rows)
+-- 18. Populate [Session] table (1000 rows)
 INSERT INTO [Session] (UserId, Token, CreatedAt, ExpiresAt)
 SELECT TOP 1000
     u.Id,
@@ -539,54 +483,3 @@ CROSS JOIN [File] f
 WHERE f.Id <= 1000 AND f.Status = 'active' AND n <= 1000;
 GO
 
--- 22. Populate SearchIndex table (for Folder and File names)
-INSERT INTO SearchIndex (ObjectId, ObjectTypeId, Term, TermFrequency, DocumentLength, TermPositions)
-SELECT 
-    f.Id AS ObjectId,
-    1 AS ObjectTypeId,
-    t.Term,
-    t.TermFrequency,
-    t.DocumentLength,
-    t.TermPositions
-FROM Folder f
-CROSS APPLY dbo.fn_TokenizeText(f.Name) t
-WHERE f.Status = 'active'
-UNION
-SELECT 
-    f.Id AS ObjectId,
-    2 AS ObjectTypeId,
-    t.Term,
-    t.TermFrequency,
-    t.DocumentLength,
-    t.TermPositions
-FROM [File] f
-CROSS APPLY dbo.fn_TokenizeText(f.Name) t
-WHERE f.Status = 'active';
-GO
-
--- 23. Populate SearchIndex table (for FileContent)
-INSERT INTO SearchIndex (ObjectId, ObjectTypeId, Term, TermFrequency, DocumentLength, TermPositions)
-SELECT 
-    fc.FileId AS ObjectId,
-    2 AS ObjectTypeId,
-    t.Term,
-    t.TermFrequency,
-    t.DocumentLength,
-    t.TermPositions
-FROM FileContent fc
-CROSS APPLY dbo.fn_TokenizeText(fc.ContentChunk) t
-WHERE fc.ContentChunk IS NOT NULL;
-GO
-
--- 24. Populate TermIDF table
-INSERT INTO TermIDF (Term, IDF, LastUpdated)
-SELECT 
-    s.Term,
-    dbo.fn_CalculateIDF(s.Term, s.ObjectTypeId) AS IDF,
-    GETDATE() AS LastUpdated
-FROM (
-    SELECT DISTINCT Term, ObjectTypeId
-    FROM SearchIndex
-) s
-WHERE dbo.fn_CalculateIDF(s.Term, s.ObjectTypeId) >= 0;
-GO

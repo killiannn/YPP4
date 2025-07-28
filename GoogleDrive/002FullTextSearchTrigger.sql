@@ -40,8 +40,8 @@ RETURN
 );
 GO
 
--- Step 2: Create fn_CalculateIDF function
-CREATE OR ALTER FUNCTION dbo.fn_CalculateIDF
+-- Step 2: Create fn_CalculateBM25IDF function
+CREATE OR ALTER FUNCTION dbo.fn_CalculateBM25IDF
 (
     @Term NVARCHAR(255),
     @ObjectTypeId INT
@@ -67,10 +67,10 @@ BEGIN
     WHERE Term = @Term
         AND ObjectTypeId = @ObjectTypeId;
 
-    -- Calculate IDF: LOG(N / df), avoid division by zero
+    -- Calculate BM25 IDF: log((N - n(t) + 0.5) / (n(t) + 0.5))
     SET @IDF = CASE 
         WHEN @DocumentFrequency = 0 THEN 0
-        ELSE LOG(@TotalDocuments / @DocumentFrequency)
+        ELSE LOG((@TotalDocuments - @DocumentFrequency + 0.5) / (@DocumentFrequency + 0.5))
     END;
 
     RETURN @IDF;
@@ -127,11 +127,11 @@ BEGIN
     ON target.Term = source.Term
     WHEN MATCHED THEN
         UPDATE SET 
-            IDF = dbo.fn_CalculateIDF(source.Term, 2),
+            IDF = dbo.fn_CalculateBM25IDF(source.Term, 2),
             LastUpdated = GETDATE()
     WHEN NOT MATCHED THEN
         INSERT (Term, IDF, LastUpdated)
-        VALUES (source.Term, dbo.fn_CalculateIDF(source.Term, 2), GETDATE());
+        VALUES (source.Term, dbo.fn_CalculateBM25IDF(source.Term, 2), GETDATE());
 END;
 GO
 
@@ -170,11 +170,11 @@ BEGIN
     ON target.Term = source.Term
     WHEN MATCHED THEN
         UPDATE SET 
-            IDF = dbo.fn_CalculateIDF(source.Term, 1),
+            IDF = dbo.fn_CalculateBM25IDF(source.Term, 1),
             LastUpdated = GETDATE()
     WHEN NOT MATCHED THEN
         INSERT (Term, IDF, LastUpdated)
-        VALUES (source.Term, dbo.fn_CalculateIDF(source.Term, 1), GETDATE());
+        VALUES (source.Term, dbo.fn_CalculateBM25IDF(source.Term, 1), GETDATE());
 END;
 GO
 
@@ -214,10 +214,10 @@ BEGIN
     ON target.Term = source.Term
     WHEN MATCHED THEN
         UPDATE SET 
-            IDF = dbo.fn_CalculateIDF(source.Term, 2),
+            IDF = dbo.fn_CalculateBM25IDF(source.Term, 2),
             LastUpdated = GETDATE()
     WHEN NOT MATCHED THEN
         INSERT (Term, IDF, LastUpdated)
-        VALUES (source.Term, dbo.fn_CalculateIDF(source.Term, 2), GETDATE());
+        VALUES (source.Term, dbo.fn_CalculateBM25IDF(source.Term, 2), GETDATE());
 END;
 GO
