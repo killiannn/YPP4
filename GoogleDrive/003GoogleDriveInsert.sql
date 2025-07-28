@@ -2,27 +2,11 @@
 USE GoogleDrive;
 GO
 
--- Disable foreign key constraints to allow TRUNCATE
-ALTER TABLE FileContent NOCHECK CONSTRAINT ALL;
-ALTER TABLE SettingUser NOCHECK CONSTRAINT ALL;
-ALTER TABLE [Session] NOCHECK CONSTRAINT ALL;
-ALTER TABLE SearchHistory NOCHECK CONSTRAINT ALL;
-ALTER TABLE Recent NOCHECK CONSTRAINT ALL;
-ALTER TABLE FavoriteObject NOCHECK CONSTRAINT ALL;
-ALTER TABLE BannedUser NOCHECK CONSTRAINT ALL;
-ALTER TABLE UserProduct NOCHECK CONSTRAINT ALL;
-ALTER TABLE SharedUser NOCHECK CONSTRAINT ALL;
-ALTER TABLE Share NOCHECK CONSTRAINT ALL;
-ALTER TABLE FileVersion NOCHECK CONSTRAINT ALL;
-ALTER TABLE Trash NOCHECK CONSTRAINT ALL;
-ALTER TABLE [File] NOCHECK CONSTRAINT ALL;
-ALTER TABLE Folder NOCHECK CONSTRAINT ALL;
-ALTER TABLE UserProduct NOCHECK CONSTRAINT ALL;
-ALTER TABLE Promotion NOCHECK CONSTRAINT ALL;
-ALTER TABLE [Product] NOCHECK CONSTRAINT ALL;
-ALTER TABLE [User] NOCHECK CONSTRAINT ALL;
+-- Step 1: Disable all CHECK and FOREIGN KEY constraints
+EXEC sp_msforeachtable 'ALTER TABLE ? NOCHECK CONSTRAINT ALL';
+GO
 
--- TRUNCATE all tables
+-- Step 2: Truncate all tables in dependency order
 TRUNCATE TABLE FileContent;
 TRUNCATE TABLE SettingUser;
 TRUNCATE TABLE [Session];
@@ -32,40 +16,24 @@ TRUNCATE TABLE FavoriteObject;
 TRUNCATE TABLE BannedUser;
 TRUNCATE TABLE UserProduct;
 TRUNCATE TABLE SharedUser;
-TRUNCATE TABLE Share;
 TRUNCATE TABLE FileVersion;
 TRUNCATE TABLE Trash;
 TRUNCATE TABLE SearchIndex;
 TRUNCATE TABLE TermIDF;
+TRUNCATE TABLE Share;
 TRUNCATE TABLE [File];
 TRUNCATE TABLE Folder;
 TRUNCATE TABLE FileType;
 TRUNCATE TABLE Permission;
-TRUNCATE TABLE ObjectType;
-TRUNCATE TABLE Setting;
 TRUNCATE TABLE Promotion;
 TRUNCATE TABLE [Product];
+TRUNCATE TABLE Setting;
+TRUNCATE TABLE ObjectType;
 TRUNCATE TABLE [User];
+GO
 
--- Re-enable foreign key constraints
-ALTER TABLE FileContent CHECK CONSTRAINT ALL;
-ALTER TABLE SettingUser CHECK CONSTRAINT ALL;
-ALTER TABLE [Session] CHECK CONSTRAINT ALL;
-ALTER TABLE SearchHistory CHECK CONSTRAINT ALL;
-ALTER TABLE Recent CHECK CONSTRAINT ALL;
-ALTER TABLE FavoriteObject CHECK CONSTRAINT ALL;
-ALTER TABLE BannedUser CHECK CONSTRAINT ALL;
-ALTER TABLE UserProduct CHECK CONSTRAINT ALL;
-ALTER TABLE SharedUser CHECK CONSTRAINT ALL;
-ALTER TABLE Share CHECK CONSTRAINT ALL;
-ALTER TABLE FileVersion CHECK CONSTRAINT ALL;
-ALTER TABLE Trash CHECK CONSTRAINT ALL;
-ALTER TABLE [File] CHECK CONSTRAINT ALL;
-ALTER TABLE Folder CHECK CONSTRAINT ALL;
-ALTER TABLE UserProduct CHECK CONSTRAINT ALL;
-ALTER TABLE Promotion CHECK CONSTRAINT ALL;
-ALTER TABLE [Product] CHECK CONSTRAINT ALL;
-ALTER TABLE [User] CHECK CONSTRAINT ALL;
+-- Step 3: Re-enable all constraints (with validation, as tables are empty)
+EXEC sp_msforeachtable 'ALTER TABLE ? WITH CHECK CHECK CONSTRAINT ALL';
 GO
 
 -- 1. Populate User table (1000 rows)
@@ -469,16 +437,48 @@ CROSS JOIN [User] u
 WHERE u.Id <= 1000 AND n <= 1000;
 GO
 
--- 21. Populate FileContent table (1000 rows)
+-- 21. Populate FileContent table (1000 rows) with specific content
 INSERT INTO FileContent (FileId, ContentChunk, ChunkIndex, CreatedAt)
 SELECT TOP 1000
     f.Id,
-    'Content chunk for file' + CAST(f.Id AS NVARCHAR(255)),
-    ABS(CHECKSUM(NEWID()) % 10) + 1,
-    DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE())
+    CASE f.FileTypeId
+        WHEN 1 THEN -- docx
+            'Report for File' + CAST(f.Id AS NVARCHAR(255)) + ', Section ' + CAST(ABS(CHECKSUM(NEWID()) % 10) + 1 AS NVARCHAR(10)) + 
+            ': This document contains project details, including objectives and outcomes. Key points include analysis of data trends and recommendations for next steps.'
+        WHEN 2 THEN -- excel
+            'Date,Value,Sales\n' + 
+            CAST(DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()) AS NVARCHAR(255)) + ',' + 
+            CAST(ABS(CHECKSUM(NEWID()) % 1000) AS NVARCHAR(255)) + ',' + 
+            CAST(ABS(CHECKSUM(NEWID()) % 5000) AS NVARCHAR(255))
+        WHEN 3 THEN -- image
+            'Image' + CAST(f.Id AS NVARCHAR(255)) + ': Resolution 1920x1080, Type: ' + 
+            CASE ABS(CHECKSUM(NEWID()) % 3) 
+                WHEN 0 THEN 'Landscape' 
+                WHEN 1 THEN 'Portrait' 
+                ELSE 'Square' 
+            END + ', Tags: ' + 
+            CASE ABS(CHECKSUM(NEWID()) % 3) 
+                WHEN 0 THEN 'nature, sunset' 
+                WHEN 1 THEN 'city, skyline' 
+                ELSE 'abstract, art' 
+            END
+        WHEN 4 THEN -- video
+            'Video' + CAST(f.Id AS NVARCHAR(255)) + ': Duration ' + 
+            CAST(ABS(CHECKSUM(NEWID()) % 300) + 60 AS NVARCHAR(255)) + 's, Resolution: ' + 
+            CASE ABS(CHECKSUM(NEWID()) % 2) 
+                WHEN 0 THEN '4K' 
+                ELSE '1080p' 
+            END + ', Description: Tutorial on ' + 
+            CASE ABS(CHECKSUM(NEWID()) % 3) 
+                WHEN 0 THEN 'SQL programming' 
+                WHEN 1 THEN 'cloud storage' 
+                ELSE 'data analysis' 
+            END
+    END AS ContentChunk,
+    ABS(CHECKSUM(NEWID()) % 10) + 1 AS ChunkIndex,
+    DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()) AS CreatedAt
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN [File] f
-WHERE f.Id <= 1000 AND n <= 1000;
+WHERE f.Id <= 1000 AND f.Status = 'active' AND n <= 1000;
 GO
-

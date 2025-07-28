@@ -2,8 +2,6 @@ USE GoogleDrive;
 GO
 
 
-
-
 --get user information
 select 
 	u.Name as UserName,
