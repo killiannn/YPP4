@@ -61,7 +61,7 @@ INSERT INTO ObjectType (Name)
 VALUES ('folder'), ('file');
 GO
 
--- 4. Populate Folder table (1000 rows)
+-- 4. Populate Folder table (1000 rows with up to 3-4 subfolders)
 IF OBJECT_ID('tempdb..#TempFolder') IS NOT NULL DROP TABLE #TempFolder;
 CREATE TABLE #TempFolder (
     Id INT,
@@ -72,11 +72,12 @@ CREATE TABLE #TempFolder (
     UpdatedAt DATETIME,
     Path NVARCHAR(255),
     Status NVARCHAR(50),
-    Size BIGINT
+    Size BIGINT,
+    Level INT
 );
 
 -- Insert top-level folders (200 rows)
-INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size)
+INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size, Level)
 SELECT TOP 200
     ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS Id,
     NULL,
@@ -86,60 +87,90 @@ SELECT TOP 200
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()),
     '/' + CAST(ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS NVARCHAR(255)),
     CASE WHEN ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) % 10 = 0 THEN 'archived' ELSE 'active' END,
-    0 -- Placeholder; will update Size later
+    0,
+    1
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN [User] u
 WHERE u.Id <= 1000 AND n <= 200;
 
--- Insert child folders (800 rows)
-INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size)
+-- Insert subfolders (~800 rows, 1-4 per parent, balanced)
+WITH ParentFolders AS (
+    SELECT 
+        f.Id,
+        f.Level,
+        ROW_NUMBER() OVER (ORDER BY NEWID()) AS rn,
+        ABS(CHECKSUM(NEWID()) % 4) + 1 AS SubfolderCount -- Random 1-4 subfolders
+    FROM #TempFolder f
+    WHERE f.Status = 'active' AND f.Level < 4
+),
+SubfolderAssignments AS (
+    SELECT 
+        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 200 AS Id,
+        p.Id AS ParentId,
+        u.Id AS OwnerId,
+        'Folder' + CAST((ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 200) AS NVARCHAR(255)) AS Name,
+        DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()) AS CreatedAt,
+        DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()) AS UpdatedAt,
+        '' AS Path,
+        CASE WHEN ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) % 10 = 0 THEN 'archived' ELSE 'active' END AS Status,
+        0 AS Size,
+        p.Level + 1 AS Level
+    FROM ParentFolders p
+    CROSS JOIN [User] u
+    CROSS APPLY (
+        SELECT TOP (p.SubfolderCount) n
+        FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
+              FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
+        WHERE n <= 4
+    ) sub
+    WHERE u.Id <= 1000
+)
+INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size, Level)
 SELECT TOP 800
-    (ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 200) AS Id,
-    (SELECT TOP 1 Id FROM #TempFolder WHERE Id <= 200 ORDER BY NEWID()),
-    u.Id,
-    'Folder' + CAST((ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 200) AS NVARCHAR(255)),
-    DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()),
-    DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()),
-    '',
-    CASE WHEN ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) % 10 = 0 THEN 'archived' ELSE 'active' END,
-    0 -- Placeholder; will update Size later
-FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
-      FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
-WHERE u.Id <= 1000 AND n <= 800;
+    Id,
+    ParentId,
+    OwnerId,
+    Name,
+    CreatedAt,
+    UpdatedAt,
+    Path,
+    Status,
+    Size,
+    Level
+FROM SubfolderAssignments
+ORDER BY Id;
 
--- Update paths for child folders
+-- Update paths for all folders
 WITH FolderHierarchy AS (
     SELECT 
         Id,
         ParentId,
-        Path
+        Path,
+        Level
     FROM #TempFolder
     WHERE ParentId IS NULL
     UNION ALL
     SELECT 
         t.Id,
         t.ParentId,
-        CAST(f.Path + '/' + CAST(t.Id AS NVARCHAR(255)) AS NVARCHAR(255))
+        CAST(f.Path + '/' + CAST(t.Id AS NVARCHAR(255)) AS NVARCHAR(255)),
+        t.Level
     FROM #TempFolder t
     INNER JOIN FolderHierarchy f ON t.ParentId = f.Id
 )
 UPDATE tf
 SET Path = fh.Path
 FROM #TempFolder tf
-INNER JOIN FolderHierarchy fh ON tf.Id = fh.Id
-WHERE tf.ParentId IS NOT NULL;
+INNER JOIN FolderHierarchy fh ON tf.Id = fh.Id;
 
 -- Enable IDENTITY_INSERT for Folder table
 SET IDENTITY_INSERT Folder ON;
 
--- Insert into actual Folder table
 INSERT INTO Folder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size)
 SELECT Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size
 FROM #TempFolder;
 
--- Disable IDENTITY_INSERT
 SET IDENTITY_INSERT Folder OFF;
 
 DROP TABLE #TempFolder;
