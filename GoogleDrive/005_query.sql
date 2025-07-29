@@ -71,7 +71,7 @@ where u.id = 1
 order by f.ModifiedDate;
 
 --Starred
---get starred files of an user
+--get starred objects of an user
 select
 	fo.id,
     fo.ObjectId,
@@ -189,6 +189,15 @@ join Users u on up.UserId = u.Id
 join Promotion pr on up.PromotionId = pr.Id
 where u.Id = 199
 
+--get search history of an user
+select
+	sh.id,
+	sh.SearchToken,
+	sh.SearchDatetime
+from SearchHistory sh
+join Users u on u.Id = sh.UserId
+order by sh.SearchDatetime DESC;
+
 --get users banned from an user
 select 
     bu.BannedUserId,
@@ -205,11 +214,10 @@ select *
 from Folder f
 where f.Path like '/54%' and f.Status = 'active'
 
---get 10 most relevant files from search key word 'Report'
+--get 5 most relevant files from search key word 'Report'
 SELECT TOP 5 s.ObjectTypeId, s.ObjectId,  s.Term, t.BM25
 FROM SearchIndex s
 join TermBM25 t on s.Term = t.Term
 WHERE s.Term IN ('Report')
 ORDER BY t.BM25 DESC;
 
-select * from Folder;
