@@ -167,6 +167,7 @@ select
 	f.Size
 from [File] f
 join [User] u on f.OwnerId = u.Id
+where u.id = 1
 order by f.Size DESC;
 
 --get product bought by user 

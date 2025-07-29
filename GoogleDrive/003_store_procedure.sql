@@ -124,34 +124,3 @@ BEGIN
 END;
 GO
 
-CREATE OR ALTER TRIGGER dbo.trg_SharedUser_PermissionPropagation
-ON SharedUser
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Process each updated SharedUser row
-    DECLARE @ShareId INT, @UserId INT, @PermissionId INT;
-
-    DECLARE updated_cursor CURSOR LOCAL FAST_FORWARD FOR
-    SELECT i.ShareId, i.UserId, i.PermissionId
-    FROM inserted i
-    INNER JOIN Share s ON i.ShareId = s.Id
-    WHERE s.ObjectTypeId = 1; -- Only process folder shares
-
-    OPEN updated_cursor;
-    FETCH NEXT FROM updated_cursor INTO @ShareId, @UserId, @PermissionId;
-
-    WHILE @@FETCH_STATUS = 0
-    BEGIN
-        -- Call the stored procedure to propagate permissions
-        EXEC dbo.sp_PropagateFolderPermissions @ShareId, @UserId, @PermissionId;
-
-        FETCH NEXT FROM updated_cursor INTO @ShareId, @UserId, @PermissionId;
-    END
-
-    CLOSE updated_cursor;
-    DEALLOCATE updated_cursor;
-END;
-GO
