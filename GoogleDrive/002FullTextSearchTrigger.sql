@@ -41,6 +41,9 @@ RETURN
 GO
 
 -- Step 2: Create fn_CalculateBM25BM25 function
+USE GoogleDrive;
+GO
+
 CREATE OR ALTER FUNCTION dbo.fn_CalculateBM25BM25
 (
     @Term NVARCHAR(255),
@@ -70,7 +73,11 @@ BEGIN
     -- Calculate BM25 score, ensuring non-negative result
     SET @BM25 = CASE 
         WHEN @DocumentFrequency = 0 OR @TotalDocuments = 0 THEN 0
-        ELSE MAX(0, LOG((@TotalDocuments - @DocumentFrequency + 0.5) / (@DocumentFrequency + 0.5)))
+        ELSE CASE 
+                WHEN LOG((@TotalDocuments - @DocumentFrequency + 0.5) / (@DocumentFrequency + 0.5)) < 0 
+                THEN 0 
+                ELSE LOG((@TotalDocuments - @DocumentFrequency + 0.5) / (@DocumentFrequency + 0.5)) 
+             END
     END;
 
     RETURN @BM25;

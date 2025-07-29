@@ -71,11 +71,12 @@ CREATE TABLE #TempFolder (
     UpdatedAt DATETIME,
     Path NVARCHAR(255),
     Status NVARCHAR(50),
-    Size BIGINT
+    Size BIGINT,
+    Level INT -- Track folder level for hierarchy
 );
 
--- Insert top-level folders (200 rows)
-INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size)
+-- Insert top-level folders (200 rows, Level 1)
+INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size, Level)
 SELECT TOP 200
     ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS Id,
     NULL,
@@ -85,42 +86,83 @@ SELECT TOP 200
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()),
     '/' + CAST(ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS NVARCHAR(255)),
     CASE WHEN ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) % 10 = 0 THEN 'archived' ELSE 'active' END,
-    0 -- Placeholder; will update Size later
+    0,
+    1
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN [User] u
 WHERE u.Id <= 1000 AND n <= 200;
 
--- Insert child folders (800 rows)
-INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size)
-SELECT TOP 800
+-- Insert child folders for levels 2 to 4 (800 rows total, ~200 per level)
+-- Level 2: 200 folders, parent from Level 1
+INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size, Level)
+SELECT TOP 200
     (ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 200) AS Id,
-    (SELECT TOP 1 Id FROM #TempFolder WHERE Id <= 200 ORDER BY NEWID()),
+    (SELECT TOP 1 Id FROM #TempFolder WHERE Level = 1 ORDER BY NEWID()),
     u.Id,
     'Folder' + CAST((ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 200) AS NVARCHAR(255)),
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()),
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()),
     '',
     CASE WHEN ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) % 10 = 0 THEN 'archived' ELSE 'active' END,
-    0 -- Placeholder; will update Size later
+    0,
+    2
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN [User] u
-WHERE u.Id <= 1000 AND n <= 800;
+WHERE u.Id <= 1000 AND n <= 200;
 
--- Update paths for child folders
+-- Level 3: 200 folders, parent from Level 2
+INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size, Level)
+SELECT TOP 200
+    (ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 400) AS Id,
+    (SELECT TOP 1 Id FROM #TempFolder WHERE Level = 2 ORDER BY NEWID()),
+    u.Id,
+    'Folder' + CAST((ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 400) AS NVARCHAR(255)),
+    DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()),
+    DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()),
+    '',
+    CASE WHEN ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) % 10 = 0 THEN 'archived' ELSE 'active' END,
+    0,
+    3
+FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
+      FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
+CROSS JOIN [User] u
+WHERE u.Id <= 1000 AND n <= 200;
+
+-- Level 4: 200 folders, parent from Level 3
+INSERT INTO #TempFolder (Id, ParentId, OwnerId, Name, CreatedAt, UpdatedAt, Path, Status, Size, Level)
+SELECT TOP 200
+    (ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 600) AS Id,
+    (SELECT TOP 1 Id FROM #TempFolder WHERE Level = 3 ORDER BY NEWID()),
+    u.Id,
+    'Folder' + CAST((ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) + 600) AS NVARCHAR(255)),
+    DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()),
+    DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE()),
+    '',
+    CASE WHEN ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) % 10 = 0 THEN 'archived' ELSE 'active' END,
+    0,
+    4
+FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
+      FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
+CROSS JOIN [User] u
+WHERE u.Id <= 1000 AND n <= 200;
+
+-- Update paths for child folders (Levels 2 to 4)
 WITH FolderHierarchy AS (
     SELECT 
         Id,
         ParentId,
-        Path
+        Path,
+        Level
     FROM #TempFolder
     WHERE ParentId IS NULL
     UNION ALL
     SELECT 
         t.Id,
         t.ParentId,
-        CAST(f.Path + '/' + CAST(t.Id AS NVARCHAR(255)) AS NVARCHAR(255))
+        CAST(f.Path + '/' + CAST(t.Id AS NVARCHAR(255)) AS NVARCHAR(255)),
+        t.Level
     FROM #TempFolder t
     INNER JOIN FolderHierarchy f ON t.ParentId = f.Id
 )
