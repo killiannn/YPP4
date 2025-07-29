@@ -40,8 +40,8 @@ RETURN
 );
 GO
 
--- Step 2: Create fn_CalculateBM25IDF function
-CREATE OR ALTER FUNCTION dbo.fn_CalculateBM25IDF
+-- Step 2: Create fn_CalculateBM25BM25 function
+CREATE OR ALTER FUNCTION dbo.fn_CalculateBM25BM25
 (
     @Term NVARCHAR(255),
     @ObjectTypeId INT
@@ -51,7 +51,7 @@ AS
 BEGIN
     DECLARE @TotalDocuments FLOAT;
     DECLARE @DocumentFrequency FLOAT;
-    DECLARE @IDF FLOAT;
+    DECLARE @BM25 FLOAT;
 
     -- Count total documents (files or folders) based on ObjectTypeId, only active
     SELECT @TotalDocuments = COUNT(*)
@@ -67,13 +67,13 @@ BEGIN
     WHERE Term = @Term
         AND ObjectTypeId = @ObjectTypeId;
 
-    -- Calculate BM25 IDF: log((N - n(t) + 0.5) / (n(t) + 0.5))
-    SET @IDF = CASE 
-        WHEN @DocumentFrequency = 0 THEN 0
-        ELSE LOG((@TotalDocuments - @DocumentFrequency + 0.5) / (@DocumentFrequency + 0.5))
+    -- Calculate BM25 score, ensuring non-negative result
+    SET @BM25 = CASE 
+        WHEN @DocumentFrequency = 0 OR @TotalDocuments = 0 THEN 0
+        ELSE MAX(0, LOG((@TotalDocuments - @DocumentFrequency + 0.5) / (@DocumentFrequency + 0.5)))
     END;
 
-    RETURN @IDF;
+    RETURN @BM25;
 END;
 GO
 
@@ -116,8 +116,8 @@ BEGIN
     CROSS APPLY dbo.fn_TokenizeText(fc.ContentChunk) t
     WHERE fc.ContentChunk IS NOT NULL;
 
-    -- Update TermIDF for affected terms (files only, ObjectTypeId = 2)
-    MERGE INTO TermIDF AS target
+    -- Update TermBM25 for affected terms (files only, ObjectTypeId = 2)
+    MERGE INTO TermBM25 AS target
     USING (
         SELECT DISTINCT Term
         FROM SearchIndex
@@ -127,11 +127,11 @@ BEGIN
     ON target.Term = source.Term
     WHEN MATCHED THEN
         UPDATE SET 
-            IDF = dbo.fn_CalculateBM25IDF(source.Term, 2),
+            BM25 = dbo.fn_CalculateBM25BM25(source.Term, 2),
             LastUpdated = GETDATE()
     WHEN NOT MATCHED THEN
-        INSERT (Term, IDF, LastUpdated)
-        VALUES (source.Term, dbo.fn_CalculateBM25IDF(source.Term, 2), GETDATE());
+        INSERT (Term, BM25, LastUpdated)
+        VALUES (source.Term, dbo.fn_CalculateBM25BM25(source.Term, 2), GETDATE());
 END;
 GO
 
@@ -159,8 +159,8 @@ BEGIN
     FROM inserted i
     CROSS APPLY dbo.fn_TokenizeText(i.Name) t;
 
-    -- Update TermIDF for affected terms (folders only, ObjectTypeId = 1)
-    MERGE INTO TermIDF AS target
+    -- Update TermBM25 for affected terms (folders only, ObjectTypeId = 1)
+    MERGE INTO TermBM25 AS target
     USING (
         SELECT DISTINCT Term
         FROM SearchIndex
@@ -170,11 +170,11 @@ BEGIN
     ON target.Term = source.Term
     WHEN MATCHED THEN
         UPDATE SET 
-            IDF = dbo.fn_CalculateBM25IDF(source.Term, 1),
+            BM25 = dbo.fn_CalculateBM25BM25(source.Term, 1),
             LastUpdated = GETDATE()
     WHEN NOT MATCHED THEN
-        INSERT (Term, IDF, LastUpdated)
-        VALUES (source.Term, dbo.fn_CalculateBM25IDF(source.Term, 1), GETDATE());
+        INSERT (Term, BM25, LastUpdated)
+        VALUES (source.Term, dbo.fn_CalculateBM25BM25(source.Term, 1), GETDATE());
 END;
 GO
 
@@ -203,8 +203,8 @@ BEGIN
     CROSS APPLY dbo.fn_TokenizeText(i.ContentChunk) t
     WHERE i.ContentChunk IS NOT NULL;
 
-    -- Update TermIDF for affected terms (files only, ObjectTypeId = 2)
-    MERGE INTO TermIDF AS target
+    -- Update TermBM25 for affected terms (files only, ObjectTypeId = 2)
+    MERGE INTO TermBM25 AS target
     USING (
         SELECT DISTINCT Term
         FROM SearchIndex
@@ -214,10 +214,10 @@ BEGIN
     ON target.Term = source.Term
     WHEN MATCHED THEN
         UPDATE SET 
-            IDF = dbo.fn_CalculateBM25IDF(source.Term, 2),
+            BM25 = dbo.fn_CalculateBM25BM25(source.Term, 2),
             LastUpdated = GETDATE()
     WHEN NOT MATCHED THEN
-        INSERT (Term, IDF, LastUpdated)
-        VALUES (source.Term, dbo.fn_CalculateBM25IDF(source.Term, 2), GETDATE());
+        INSERT (Term, BM25, LastUpdated)
+        VALUES (source.Term, dbo.fn_CalculateBM25BM25(source.Term, 2), GETDATE());
 END;
 GO

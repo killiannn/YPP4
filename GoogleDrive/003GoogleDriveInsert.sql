@@ -1,12 +1,11 @@
-
 USE GoogleDrive;
 GO
 
--- Step 1: Disable all CHECK and FOREIGN KEY constraints
+-- Disable all CHECK and FOREIGN KEY constraints
 EXEC sp_msforeachtable 'ALTER TABLE ? NOCHECK CONSTRAINT ALL';
 GO
 
--- Step 2: Truncate all tables in dependency order
+-- Truncate all tables in dependency order
 TRUNCATE TABLE FileContent;
 TRUNCATE TABLE SettingUser;
 TRUNCATE TABLE [Session];
@@ -15,12 +14,12 @@ TRUNCATE TABLE Recent;
 TRUNCATE TABLE FavoriteObject;
 TRUNCATE TABLE BannedUser;
 TRUNCATE TABLE UserProduct;
-TRUNCATE TABLE SharedUser;
+TRUNCATE TABLE SharedUser; -- Moved before Share to avoid foreign key constraint issue
+TRUNCATE TABLE Share;
 TRUNCATE TABLE FileVersion;
 TRUNCATE TABLE Trash;
 TRUNCATE TABLE SearchIndex;
 TRUNCATE TABLE TermBM25;
-TRUNCATE TABLE Share;
 TRUNCATE TABLE [File];
 TRUNCATE TABLE Folder;
 TRUNCATE TABLE FileType;
@@ -32,7 +31,7 @@ TRUNCATE TABLE ObjectType;
 TRUNCATE TABLE [User];
 GO
 
--- Step 3: Re-enable all constraints (with validation, as tables are empty)
+-- Re-enable all constraints (with validation, as tables are empty)
 EXEC sp_msforeachtable 'ALTER TABLE ? WITH CHECK CHECK CONSTRAINT ALL';
 GO
 
@@ -482,4 +481,3 @@ FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n
 CROSS JOIN [File] f
 WHERE f.Id <= 1000 AND f.Status = 'active' AND n <= 1000;
 GO
-

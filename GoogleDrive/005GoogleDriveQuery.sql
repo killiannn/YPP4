@@ -196,7 +196,7 @@ order by bu.BannedAt DESC;
 --get all subfolder of folder id 161
 select * 
 from Folder f
-where f.Path like '/161%'
+where f.Path like '/54%' and f.Status = 'active'
 
 --get 10 most relevant files from search key word 'Report'
 SELECT TOP 10 s.ObjectTypeId, s.ObjectId,  s.Term, t.BM25
@@ -205,4 +205,4 @@ join TermBM25 t on s.Term = t.Term
 WHERE s.Term IN ('Report')
 ORDER BY t.BM25 DESC;
 
-select * from TermBM25;
+select * from Folder;
