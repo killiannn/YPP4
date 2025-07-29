@@ -19,7 +19,7 @@ BEGIN
             THROW 50001, 'Invalid ShareId or Share is not for a folder.', 1;
         END
 
-        IF NOT EXISTS (SELECT 1 FROM [User] WHERE Id = @UserId)
+        IF NOT EXISTS (SELECT 1 FROM Users WHERE Id = @UserId)
         BEGIN
             THROW 50002, 'Invalid UserId.', 1;
         END
