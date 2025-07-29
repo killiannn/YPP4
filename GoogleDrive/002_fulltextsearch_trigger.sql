@@ -59,7 +59,7 @@ BEGIN
     -- Count total documents (files or folders) based on ObjectTypeId, only active
     SELECT @TotalDocuments = COUNT(*)
     FROM (
-        SELECT Id FROM [File] WHERE @ObjectTypeId = 2 AND Status = 'active'
+        SELECT Id FROM Files WHERE @ObjectTypeId = 2 AND Status = 'active'
         UNION
         SELECT Id FROM Folder WHERE @ObjectTypeId = 1 AND Status = 'active'
     ) AS Documents;
@@ -86,7 +86,7 @@ GO
 
 -- Step 3: Create triggers
 CREATE OR ALTER TRIGGER trg_FileIndexing
-ON [File]
+ON Files
 AFTER INSERT, UPDATE
 AS
 BEGIN

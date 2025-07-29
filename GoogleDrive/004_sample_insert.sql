@@ -8,7 +8,7 @@ GO
 -- Truncate all tables in dependency order
 TRUNCATE TABLE FileContent;
 TRUNCATE TABLE SettingUser;
-TRUNCATE TABLE [Session];
+TRUNCATE TABLE UserSession;
 TRUNCATE TABLE SearchHistory;
 TRUNCATE TABLE Recent;
 TRUNCATE TABLE FavoriteObject;
@@ -20,15 +20,15 @@ TRUNCATE TABLE FileVersion;
 TRUNCATE TABLE Trash;
 TRUNCATE TABLE SearchIndex;
 TRUNCATE TABLE TermBM25;
-TRUNCATE TABLE [File];
+TRUNCATE TABLE Files;
 TRUNCATE TABLE Folder;
 TRUNCATE TABLE FileType;
 TRUNCATE TABLE Permission;
 TRUNCATE TABLE Promotion;
-TRUNCATE TABLE [Product];
+TRUNCATE TABLE Products;
 TRUNCATE TABLE Setting;
 TRUNCATE TABLE ObjectType;
-TRUNCATE TABLE [User];
+TRUNCATE TABLE Users;
 GO
 
 -- Re-enable all constraints (with validation, as tables are empty)
@@ -36,7 +36,7 @@ EXEC sp_msforeachtable 'ALTER TABLE ? WITH CHECK CHECK CONSTRAINT ALL';
 GO
 
 -- 1. Populate User table (1000 rows)
-INSERT INTO [User] (Name, Email, PasswordHash, CreatedAt, LastLogin, UsedCapacity, Capacity)
+INSERT INTO Users (Name, Email, PasswordHash, CreatedAt, LastLogin, UsedCapacity, Capacity)
 SELECT TOP 1000
     'User' + CAST(n AS NVARCHAR(255)),
     'user' + CAST(n AS NVARCHAR(255)) + '@example.com',
@@ -90,7 +90,7 @@ SELECT TOP 200
     1
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
+CROSS JOIN Users u
 WHERE u.Id <= 1000 AND n <= 200;
 
 -- Insert child folders for levels 2 to 4 (800 rows total, ~200 per level)
@@ -109,7 +109,7 @@ SELECT TOP 200
     2
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
+CROSS JOIN Users u
 WHERE u.Id <= 1000 AND n <= 200;
 
 -- Level 3: 200 folders, parent from Level 2
@@ -127,7 +127,7 @@ SELECT TOP 200
     3
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
+CROSS JOIN Users u
 WHERE u.Id <= 1000 AND n <= 200;
 
 -- Level 4: 200 folders, parent from Level 3
@@ -145,7 +145,7 @@ SELECT TOP 200
     4
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
+CROSS JOIN Users u
 WHERE u.Id <= 1000 AND n <= 200;
 
 -- Update paths for child folders (Levels 2 to 4)
@@ -195,8 +195,8 @@ VALUES
     ('video', 'video.png');
 GO
 
--- 6. Populate [File] table (1000 rows)
-INSERT INTO [File] (FolderId, OwnerId, Size, Name, Path, FileTypeId, ModifiedDate, Status, CreatedAt)
+-- 6. Populate Files table (1000 rows)
+INSERT INTO Files (FolderId, OwnerId, Size, Name, Path, FileTypeId, ModifiedDate, Status, CreatedAt)
 SELECT TOP 1000
     f.Id,
     u.Id,
@@ -209,7 +209,7 @@ SELECT TOP 1000
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE())
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
+CROSS JOIN Users u
 CROSS JOIN Folder f
 WHERE u.Id <= 1000 AND f.Id <= 1000 AND f.Status = 'active' AND n <= 1000;
 GO
@@ -218,7 +218,7 @@ GO
 UPDATE Folder
 SET Size = (
     SELECT COALESCE(SUM(f.Size), 0)
-    FROM [File] f
+    FROM Files f
     WHERE f.FolderId = Folder.Id
       AND f.Status = 'active'
 )
@@ -232,7 +232,7 @@ SELECT TOP 1000
     (SELECT TOP 1 Id FROM (
         SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
         UNION
-        SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+        SELECT Id, 2 AS ObjectTypeId FROM Files WHERE Id <= 1000 AND Status = 'active'
     ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END 
     ORDER BY NEWID()) AS ObjectId,
     CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END,
@@ -240,13 +240,13 @@ SELECT TOP 1000
     DATEADD(DAY, ABS(CHECKSUM(NEWID()) % 30), GETDATE())
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
+CROSS JOIN Users u
 WHERE u.Id <= 1000 AND n <= 1000
     AND EXISTS (
         SELECT 1 FROM (
             SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
             UNION
-            SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+            SELECT Id, 2 AS ObjectTypeId FROM Files WHERE Id <= 1000 AND Status = 'active'
         ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
     );
 GO
@@ -260,7 +260,7 @@ SELECT TOP 1000
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
 CROSS JOIN Share s
-CROSS JOIN [User] u
+CROSS JOIN Users u
 WHERE s.Id <= 1000 AND u.Id != s.Sharer AND n <= 1000;
 GO
 
@@ -277,8 +277,8 @@ SELECT TOP 1000
     ABS(CHECKSUM(NEWID()) % 1000000000)
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [File] f
-CROSS JOIN [User] u
+CROSS JOIN Files f
+CROSS JOIN Users u
 WHERE f.Id <= 1000 AND u.Id <= 1000 AND n <= 1000;
 GO
 
@@ -288,7 +288,7 @@ SELECT TOP 1000
     (SELECT TOP 1 Id FROM (
         SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
         UNION
-        SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+        SELECT Id, 2 AS ObjectTypeId FROM Files WHERE Id <= 1000 AND Status = 'active'
     ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END 
     ORDER BY NEWID()) AS ObjectId,
     CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END,
@@ -297,19 +297,19 @@ SELECT TOP 1000
     CASE WHEN n % 10 = 0 THEN 1 ELSE 0 END
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
+CROSS JOIN Users u
 WHERE u.Id <= 1000 AND n <= 1000
     AND EXISTS (
         SELECT 1 FROM (
             SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
             UNION
-            SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+            SELECT Id, 2 AS ObjectTypeId FROM Files WHERE Id <= 1000 AND Status = 'active'
         ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
     );
 GO
 
 -- 11. Populate Product table (4 rows)
-INSERT INTO [Product] (Name, Cost, Duration)
+INSERT INTO Products (Name, Cost, Duration)
 VALUES 
     ('30gb', 19.00, 30),
     ('30gb', 190.00, 365),
@@ -337,7 +337,7 @@ SELECT TOP 1000
     DATEADD(DAY, ABS(CHECKSUM(NEWID()) % 365), GETDATE())
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
+CROSS JOIN Users u
 WHERE u.Id <= 1000 AND n <= 1000;
 GO
 
@@ -349,8 +349,8 @@ SELECT TOP 1000
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE())
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u1
-CROSS JOIN [User] u2
+CROSS JOIN Users u1
+CROSS JOIN Users u2
 WHERE u1.Id <= 1000 AND u2.Id <= 1000 AND u1.Id != u2.Id AND n <= 1000;
 GO
 
@@ -361,19 +361,19 @@ SELECT TOP 1000
     (SELECT TOP 1 Id FROM (
         SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
         UNION
-        SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+        SELECT Id, 2 AS ObjectTypeId FROM Files WHERE Id <= 1000 AND Status = 'active'
     ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END 
     ORDER BY NEWID()) AS ObjectId,
     CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
+CROSS JOIN Users u
 WHERE u.Id <= 1000 AND n <= 1000
     AND EXISTS (
         SELECT 1 FROM (
             SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
             UNION
-            SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+            SELECT Id, 2 AS ObjectTypeId FROM Files WHERE Id <= 1000 AND Status = 'active'
         ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
     );
 GO
@@ -385,24 +385,24 @@ SELECT TOP 1000
     (SELECT TOP 1 Id FROM (
         SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
         UNION
-        SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+        SELECT Id, 2 AS ObjectTypeId FROM Files WHERE Id <= 1000 AND Status = 'active'
     ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END 
     ORDER BY NEWID()) AS ObjectId,
     CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END,
     CASE 
         WHEN n % 2 = 0 THEN 'Accessed folder: Folder' + CAST((SELECT TOP 1 Id FROM Folder WHERE Id <= 1000 AND Status = 'active' ORDER BY NEWID()) AS NVARCHAR(255))
-        ELSE 'Accessed file: File' + CAST((SELECT TOP 1 Id FROM [File] WHERE Id <= 1000 AND Status = 'active' ORDER BY NEWID()) AS NVARCHAR(255))
+        ELSE 'Accessed file: File' + CAST((SELECT TOP 1 Id FROM Files WHERE Id <= 1000 AND Status = 'active' ORDER BY NEWID()) AS NVARCHAR(255))
     END,
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE())
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
+CROSS JOIN Users u
 WHERE u.Id <= 1000 AND n <= 1000
     AND EXISTS (
         SELECT 1 FROM (
             SELECT Id, 1 AS ObjectTypeId FROM Folder WHERE Id <= 1000 AND Status = 'active'
             UNION
-            SELECT Id, 2 AS ObjectTypeId FROM [File] WHERE Id <= 1000 AND Status = 'active'
+            SELECT Id, 2 AS ObjectTypeId FROM Files WHERE Id <= 1000 AND Status = 'active'
         ) Objects WHERE ObjectTypeId = CASE WHEN n % 2 = 0 THEN 1 ELSE 2 END
     );
 GO
@@ -415,12 +415,12 @@ SELECT TOP 1000
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 30), GETDATE())
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
+CROSS JOIN Users u
 WHERE u.Id <= 1000 AND n <= 1000;
 GO
 
--- 18. Populate [Session] table (1000 rows)
-INSERT INTO [Session] (UserId, Token, CreatedAt, ExpiresAt)
+-- 18. Populate UserSession table (1000 rows)
+INSERT INTO UserSession (UserId, Token, CreatedAt, ExpiresAt)
 SELECT TOP 1000
     u.Id,
     NEWID(),
@@ -428,7 +428,7 @@ SELECT TOP 1000
     DATEADD(DAY, ABS(CHECKSUM(NEWID()) % 30), GETDATE())
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
+CROSS JOIN Users u
 WHERE u.Id <= 1000 AND n <= 1000;
 GO
 
@@ -474,7 +474,7 @@ SELECT TOP 1000
     ABS(CHECKSUM(NEWID()) % 30) + 1
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [User] u
+CROSS JOIN Users u
 WHERE u.Id <= 1000 AND n <= 1000;
 GO
 
@@ -520,6 +520,6 @@ SELECT TOP 1000
     DATEADD(DAY, -ABS(CHECKSUM(NEWID()) % 365), GETDATE()) AS CreatedAt
 FROM (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n 
       FROM sys.objects s1 CROSS JOIN sys.objects s2) AS nums
-CROSS JOIN [File] f
+CROSS JOIN Files f
 WHERE f.Id <= 1000 AND f.Status = 'active' AND n <= 1000;
 GO

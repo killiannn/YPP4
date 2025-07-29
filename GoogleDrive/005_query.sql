@@ -215,9 +215,19 @@ from Folder f
 where f.Path like '/54%' and f.Status = 'active'
 
 --get 5 most relevant files from search key word 'Report'
-SELECT TOP 5 s.ObjectTypeId, s.ObjectId,  s.Term, t.BM25
+SELECT TOP 5 
+	s.ObjectTypeId, 
+	s.ObjectId,  
+	s.Term, 
+	t.BM25,
+	case
+		when s.ObjectTypeId = 1 then f.Name
+		else fi.Name
+	end as [Name]
 FROM SearchIndex s
 join TermBM25 t on s.Term = t.Term
-WHERE s.Term IN ('Report')
+left join Folder f on f.Id = s.ObjectId and s.ObjectTypeId = 1
+left join Files fi on fi.Id = s.ObjectId and s.ObjectTypeId = 2
+WHERE t.Term IN ('report')
 ORDER BY t.BM25 DESC;
 
