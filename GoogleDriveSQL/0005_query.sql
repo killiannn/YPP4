@@ -62,6 +62,7 @@ select
 	f.Path as FilePath,
 	f.ModifiedDate as FileUpdateTime,
 	ft.Name as FileType,
+	ft.Icon as Icon,
 	f.Size
 from Files f
 join Users u on f.OwnerId = u.Id
@@ -209,25 +210,21 @@ JOIN Users u on bu.BannedUserId = u.Id
 where bu.UserId = 1
 order by bu.BannedAt DESC;
 
---get all subfolder of folder id 161
+--get all subfolder of folder id 
 select * 
 from Folder f
-where f.Path like '/54%' and f.Status = 'active'
+where f.Path like '%/386' and f.Status = 'active'
 
 --get 5 most relevant files from search key word 'Report'
-SELECT TOP 5 
+SELECT
 	s.ObjectTypeId, 
 	s.ObjectId,  
 	s.Term, 
-	t.BM25,
-	case
-		when s.ObjectTypeId = 1 then f.Name
-		else fi.Name
-	end as [Name]
+	t.BM25
 FROM SearchIndex s
 join TermBM25 t on s.Term = t.Term
 left join Folder f on f.Id = s.ObjectId and s.ObjectTypeId = 1
 left join Files fi on fi.Id = s.ObjectId and s.ObjectTypeId = 2
-WHERE t.Term IN ('report')
+WHERE t.Term IN ('report' , 'document')
 ORDER BY t.BM25 DESC;
 
