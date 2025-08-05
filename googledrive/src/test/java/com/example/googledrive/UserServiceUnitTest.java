@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ActiveProfiles("test")
 @Transactional
 @Rollback
-public class PermissionPropagationTest {
+public class UserServiceUnitTest {
 
     @Autowired
     private SharedUserRepository sharedUserRepository;

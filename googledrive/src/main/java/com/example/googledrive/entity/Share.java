@@ -1,17 +1,20 @@
 package com.example.googledrive.entity;
 
-import jakarta.persistence.*;
-import lombok.Data;
+import java.time.Instant;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Entity
-@Table(name = "Share")
-@Data
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class Share {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-
     private Integer sharer;
     private Integer objectId;
     private Integer objectTypeId;
+    private Instant CreatedAt;
+    private Instant ExpiredAt;
 }
