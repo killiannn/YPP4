@@ -1,4 +1,4 @@
-package com.example.googledrive.repository;
+package com.example.googledrive.service;
 
 import com.example.googledrive.entity.SharedUser;
 import org.springframework.data.jpa.repository.JpaRepository;

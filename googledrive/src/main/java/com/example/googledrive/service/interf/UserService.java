@@ -1,4 +1,4 @@
-package com.example.googledrive.repository.interf;
+package com.example.googledrive.service.interf;
 
 import java.time.Instant;
 import java.util.List;
