@@ -22,4 +22,8 @@ public class User {
     private int UsedCapacity;
     private int Capacity;
     private String PictureUrl;
+    public Instant getLastActive() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getLastActive'");
+    }
 }

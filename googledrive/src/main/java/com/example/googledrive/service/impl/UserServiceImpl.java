@@ -19,8 +19,8 @@ public class UserServiceImpl implements UserService {
     private final UserRowMapper userRowMapper;
 
     @Override
-    public User createUser(String Username, String Bio, String Email, Instant LastActive, Instant CreatedAt,
-            String PictureUrl) {
+    public User createUser(String Username, String Email,String PasswordHash, Instant LastLogin, Instant CreatedAt,
+            String PictureUrl, int UsedCapacity, int Capacity) {
         if (Username == null) {
             throw new IllegalArgumentException("Username cannot be null or empty for user");
         }
@@ -31,9 +31,9 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("CreatedAt cannot be null");
         }
         jdbcTemplate.update(
-                "INSERT INTO Users (Username,Bio,Email,LastActive,CreatedAt,PictureUrl) VALUES (?,?,?,?,?,?)",
-                Username, Bio, Email, java.sql.Timestamp.from(LastActive), java.sql.Timestamp.from(CreatedAt),
-                PictureUrl);
+                "INSERT INTO Users (Username,Email,LastActive,CreatedAt,PictureUrl) VALUES (?,?,?,?,?,?,?,?)",
+                Username, Email, java.sql.Timestamp.from(LastLogin), java.sql.Timestamp.from(CreatedAt),
+                PictureUrl, UsedCapacity, Capacity);
         return getUserByEmail(Email);
     }
 
@@ -62,15 +62,15 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public int updateUserById(int id, String username, String bio, String pictureUrl) {
+    public int updateUserById(int id, String username, String pictureUrl) {
         User currentUser = getUserById(id);
         currentUser.setUsername(username.isBlank() ? currentUser.getUsername() : username);
-        currentUser.setBio(bio.isBlank() ? currentUser.getBio() : bio);
         currentUser.setPictureUrl(pictureUrl.isBlank() ? currentUser.getPictureUrl() : pictureUrl);
         return jdbcTemplate.update(
-                "UPDATE Users Set Username = ?, Bio = ?, PictureUrl=?  WHERE Id=?",
+                "UPDATE Users Set Username = ?, PictureUrl=?  WHERE Id=?",
                 userRowMapper,
-                currentUser.getUsername(), currentUser.getBio(), currentUser.getPictureUrl(), currentUser.getId());
+                currentUser.getUsername(), currentUser.getPictureUrl(), currentUser.getId());
     }
+
 
 }
