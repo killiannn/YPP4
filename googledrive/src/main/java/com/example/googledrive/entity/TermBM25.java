@@ -12,11 +12,9 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class SearchIndex {
+public class TermBM25 {
     private int Id;
-    private int ObjectId;
-    private int ObjectTypeId;
     private String Term;
-    private int TermFrequency;
-    private String TermPositions;
+    private float BM25;
+    private Instant LastUpdated;
 }

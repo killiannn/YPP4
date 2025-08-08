@@ -12,11 +12,11 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class SearchIndex {
+public class FileContent {
     private int Id;
-    private int ObjectId;
-    private int ObjectTypeId;
-    private String Term;
-    private int TermFrequency;
-    private String TermPositions;
+    private int FileId;
+    private String ContentChunk;
+    private int ChunkIndex;
+    private int DocumentLength;
+    private Instant CreatedAt;
 }

@@ -12,11 +12,8 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class SearchIndex {
+public class FileType {
     private int Id;
-    private int ObjectId;
-    private int ObjectTypeId;
-    private String Term;
-    private int TermFrequency;
-    private String TermPositions;
+    private String Name;
+    private String Icon;
 }
