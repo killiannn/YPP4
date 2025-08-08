@@ -12,14 +12,12 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class User {
+public class UserProduct {
     private int Id;
-    private String Username;
-    private String PasswordHash;
-    private String Email;
-    private Instant LastLogin;
-    private Instant CreatedAt;
-    private int UsedCapacity;
-    private int Capacity;
-    private String PictureUrl;
+    private int UserId;
+    private int ProductId;
+    private boolean IsFisrtPaying;
+    private int PromotionId;
+    private Instant PayingDateTime;
+    private Instant EndDateTime;
 }

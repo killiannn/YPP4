@@ -1,6 +1,7 @@
 package com.example.googledrive.entity;
 
 import java.time.Instant;
+import java.util.List;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -12,14 +13,12 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class User {
+public class SearchIndex {
     private int Id;
-    private String Username;
-    private String PasswordHash;
-    private String Email;
-    private Instant LastLogin;
-    private Instant CreatedAt;
-    private int UsedCapacity;
-    private int Capacity;
-    private String PictureUrl;
+    private int ObjectId;
+    private int ObjectTypeId;
+    private String Term;
+    private int TermFrequency;
+    private int DocumentLength;
+    private List TermPositions;
 }

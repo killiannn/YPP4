@@ -12,14 +12,14 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class User {
-    private int Id;
-    private String Username;
-    private String PasswordHash;
-    private String Email;
-    private Instant LastLogin;
+public class FileVersion {
+    private int id;
+    private int FileId;
+    private int Version;
+    private String Path;
     private Instant CreatedAt;
-    private int UsedCapacity;
-    private int Capacity;
-    private String PictureUrl;
+    private int UpdatedBy;
+    private boolean IsCurrent;
+    private String VersionFile;
+    private int Size;
 }

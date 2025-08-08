@@ -12,14 +12,9 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class User {
+public class Product {
     private int Id;
-    private String Username;
-    private String PasswordHash;
-    private String Email;
-    private Instant LastLogin;
-    private Instant CreatedAt;
-    private int UsedCapacity;
-    private int Capacity;
-    private String PictureUrl;
+    private String Name;
+    private int Cost;
+    private int Duration;
 }

@@ -12,14 +12,15 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class User {
-    private int Id;
-    private String Username;
-    private String PasswordHash;
-    private String Email;
-    private Instant LastLogin;
+public class Files {
+    private int id;
+    private int FolderId;
+    private int OwnerId;
+    private int Size;
+    private String Name;
+    private String Path;
+    private int FileTypeId;
+    private String Status;
     private Instant CreatedAt;
-    private int UsedCapacity;
-    private int Capacity;
-    private String PictureUrl;
+    private Instant ModifiedDate;
 }

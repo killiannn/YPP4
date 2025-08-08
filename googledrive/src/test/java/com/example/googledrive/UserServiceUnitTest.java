@@ -43,8 +43,8 @@ public class UserServiceUnitTest {
                 .thenReturn(sampleUser);
 
         User result = userServiceImpl.createUser(
-                "testuser", "bio", "test@email.com",
-                sampleUser.getLastActive(), sampleUser.getCreatedAt(), "pic.png", 0, 0);
+                "testuser", "test@gmail.com", "1234abcd",
+                sampleUser.getLastLogin(), sampleUser.getCreatedAt(), "pic.png", 0, 0);
         assertNotNull(result);
         assertEquals("testuser", result.getUsername());
     }
@@ -60,7 +60,7 @@ public class UserServiceUnitTest {
     @Test
     void testCreateUser_NullEmail() {
         Exception ex = assertThrows(IllegalArgumentException.class,
-                () -> userServiceImpl.createUser("testuser", "bio", null, Instant.now(), Instant.now(), "pic.png", 0, 0));
+                () -> userServiceImpl.createUser("testuser", null, "1234abcd", Instant.now(), Instant.now(), "pic.png", 0, 0));
         assertTrue(ex.getMessage().contains("Email cannot be null"));
     }
 

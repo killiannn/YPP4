@@ -5,8 +5,6 @@ import java.util.List;
 import com.example.googledrive.entity.User;
 
 public interface UserService {
-    User createUser(String username, String email, Instant lastActive, Instant createdAt, 
-        int UsedCapacity, int Capacity);
 
     User getUserById(int id);
 
@@ -20,6 +18,8 @@ public interface UserService {
 
     User createUser(String Username, String Email, String PasswordHash, Instant LastLogin, Instant CreatedAt,
             String PictureUrl, int UsedCapacity, int Capacity);
+
+	List<User> getLastLogin();
 
 }
 

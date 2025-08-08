@@ -32,7 +32,7 @@ public class UserServiceImpl implements UserService {
         }
         jdbcTemplate.update(
                 "INSERT INTO Users (Username,Email,LastActive,CreatedAt,PictureUrl) VALUES (?,?,?,?,?,?,?,?)",
-                Username, Email, java.sql.Timestamp.from(LastLogin), java.sql.Timestamp.from(CreatedAt),
+                Username, Email, PasswordHash, java.sql.Timestamp.from(LastLogin), java.sql.Timestamp.from(CreatedAt),
                 PictureUrl, UsedCapacity, Capacity);
         return getUserByEmail(Email);
     }
@@ -48,6 +48,11 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<User> getAllUser() {
         return jdbcTemplate.query("SELECT Username,Email From Users", userRowMapper);
+    }
+
+    @Override
+    public List<User> getLastLogin() {
+        return jdbcTemplate.query("SELECT LastLogin From Users ", userRowMapper);
     }
 
     @Override
