@@ -1,7 +1,6 @@
 package com.example.googledrive.entity;
 
 import java.time.Instant;
-import java.util.List;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -19,6 +18,5 @@ public class SearchIndex {
     private int ObjectTypeId;
     private String Term;
     private int TermFrequency;
-    private int DocumentLength;
-    private List TermPositions;
+    private String TermPositions;
 }
