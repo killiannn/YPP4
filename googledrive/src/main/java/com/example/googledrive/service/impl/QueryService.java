@@ -1,35 +1,44 @@
-package com.example.drive;
+package com.example.googledrive.service.impl;
 
-import java.util.*;
-import java.util.stream.Collectors;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.util.List;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import org.springframework.stereotype.Service;
+
+import lombok.RequiredArgsConstructor;
+
+import com.example.googledrive.entity.User;
+import com.example.googledrive.entity.Folder;
+import com.example.googledrive.entity.Files;
+import com.example.googledrive.entity.BannedUser;
+import com.example.googledrive.entity.FavoriteObject;
+import com.example.googledrive.entity.FileContent;
+import com.example.googledrive.entity.FileType;
+import com.example.googledrive.entity.FileVersion;
+import com.example.googledrive.entity.ObjectType;
+import com.example.googledrive.entity.Permission;
+import com.example.googledrive.entity.Product;
+import com.example.googledrive.entity.Promotion;
+import com.example.googledrive.entity.Recent;
+import com.example.googledrive.entity.SearchHistory;
+import com.example.googledrive.entity.SearchIndex;
+import com.example.googledrive.entity.Setting;
+import com.example.googledrive.entity.SettingUser;
+import com.example.googledrive.entity.Share;
+import com.example.googledrive.entity.SharedUser;
+import com.example.googledrive.entity.TermBM25;
+import com.example.googledrive.entity.Trash;
+import com.example.googledrive.entity.UserProduct;
+
+import com.example.googledrive.service.interf.UserService;
+import com.example.googledrive.service.mapper.UserRowMapper;
 
 public class QueryService {
 
-    // --- In-memory datasets ---
-    public List<User> users = new ArrayList<>();
-    public List<Setting> settings = new ArrayList<>();
-    public List<SettingUser> settingUsers = new ArrayList<>();
-    public List<Folder> folders = new ArrayList<>();
-    public List<File> files = new ArrayList<>();
-    public List<FileType> fileTypes = new ArrayList<>();
-    public List<ObjectType> objectTypes = new ArrayList<>();
-    public List<Recent> recents = new ArrayList<>();
-    public List<FavoriteObject> favoriteObjects = new ArrayList<>();
-    public List<Share> shares = new ArrayList<>();
-    public List<SharedUser> sharedUsers = new ArrayList<>();
-    public List<Permission> permissions = new ArrayList<>();
-    public List<Trash> trashes = new ArrayList<>();
-    public List<Product> products = new ArrayList<>();
-    public List<UserProduct> userProducts = new ArrayList<>();
-    public List<Promotion> promotions = new ArrayList<>();
-    public List<SearchHistory> searchHistories = new ArrayList<>();
-    public List<BannedUser> bannedUsers = new ArrayList<>();
-    public List<SearchIndex> searchIndices = new ArrayList<>();
-    public List<TermBM25> termBM25s = new ArrayList<>();
-
     // 1. get user informations
-    public Optional<User> getUserInfo(int userId) {
+    public List<User> getUserInfo(int userId) {
         return users.stream().filter(u -> u.id == userId).findFirst();
     }
 
