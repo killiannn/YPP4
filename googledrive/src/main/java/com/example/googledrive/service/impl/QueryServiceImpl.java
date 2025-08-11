@@ -2,6 +2,8 @@ package com.example.googledrive.service.impl;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -32,10 +34,10 @@ import com.example.googledrive.entity.TermBM25;
 import com.example.googledrive.entity.Trash;
 import com.example.googledrive.entity.UserProduct;
 
-import com.example.googledrive.service.interf.UserService;
+import com.example.googledrive.service.interf.QueryService;
 import com.example.googledrive.service.mapper.UserRowMapper;
 
-public class QueryService {
+public class QueryServiceImpl {
 
     // 1. get user informations
     public List<User> getUserInfo(int userId) {
