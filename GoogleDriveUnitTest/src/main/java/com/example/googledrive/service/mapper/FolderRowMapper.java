@@ -4,7 +4,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import com.example.googledrive.entity.Folder;
-import com.example.googledrive.entity.User;
 
 public class FolderRowMapper extends BaseRowMapper<Folder> {
 

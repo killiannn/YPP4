@@ -12,7 +12,7 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class Files {
+public class File {
     private int id;
     private int FolderId;
     private int OwnerId;
