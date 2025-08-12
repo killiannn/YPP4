@@ -15,8 +15,8 @@ import com.example.googledrive.service.mapper.FolderRowMapper;
 @Service
 @RequiredArgsConstructor
 public class FolderServiceImpl implements FolderService {
-    private final JdbcTemplate jdbcTemplate = null;
-    private final FolderRowMapper folderRowMapper = null;
+    private final JdbcTemplate jdbcTemplate;
+    private final FolderRowMapper folderRowMapper = new FolderRowMapper();
 
     @Override
 	public Folder createFolder(int parentId, int ownerId, String name, String path, String status, int size,
@@ -26,6 +26,9 @@ public class FolderServiceImpl implements FolderService {
         }
         if (CreatedAt == null) {
             throw new IllegalArgumentException("CreatedAt cannot be null");
+        }
+        if (ownerId <= 0) {
+            throw new IllegalArgumentException("OwnerId cannot be null");
         }
         jdbcTemplate.update(
                 "INSERT INTO Folder (ParentId, OwnerId, Name, Size, CreatedAt, UpdatedAt, Path, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -61,6 +64,11 @@ public class FolderServiceImpl implements FolderService {
                 "UPDATE Folder SET Name = ? WHERE Id = ?",
                 currentFolder.getName(), id);
         
+	}
+
+	public Folder getFolderByPath(String string) {
+        String sql = "SELECT * FROM Folder WHERE Path = ?";
+        return jdbcTemplate.queryForObject(sql, folderRowMapper, string);
 	}
 
 	
