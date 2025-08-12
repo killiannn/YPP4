@@ -13,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 
 import com.example.googledrive.entity.User;
 import com.example.googledrive.entity.Folder;
-import com.example.googledrive.entity.Files;
+import com.example.googledrive.entity.File;
 import com.example.googledrive.entity.BannedUser;
 import com.example.googledrive.entity.FavoriteObject;
 import com.example.googledrive.entity.FileContent;
