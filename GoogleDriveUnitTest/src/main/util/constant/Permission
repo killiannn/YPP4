@@ -1,0 +1,5 @@
+package googledrive.src.main.util.constant
+
+public enum PermissionEnum {
+    READER, COMMENTER, CONTRIBUTOR
+}
