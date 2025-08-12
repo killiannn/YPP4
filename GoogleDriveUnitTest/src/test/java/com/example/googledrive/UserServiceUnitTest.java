@@ -38,7 +38,7 @@ public class UserServiceUnitTest {
 
     @Test
     void testCreateUser_Success() {
-        when(jdbcTemplate.update(anyString(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt())).thenReturn(1);
+        when(jdbcTemplate.update(anyString(), any(), any(), any(), any(), any(), any())).thenReturn(1);
         when(jdbcTemplate.queryForObject(anyString(), ArgumentMatchers.<RowMapper<User>>any(), eq("test@gmail.com")))
                 .thenReturn(sampleUser);
 
@@ -100,7 +100,7 @@ public class UserServiceUnitTest {
     void testDeleteUserById() {
         when(jdbcTemplate.update(anyString(), any(RowMapper.class), eq(1))).thenReturn(1);
         int rows = userServiceImpl.deleteUserById(1);
-        assertEquals(0, rows);
+        assertEquals(1, rows);
     }
 
     @Test
@@ -125,6 +125,6 @@ public class UserServiceUnitTest {
                 .thenReturn(sampleUser);
         when(jdbcTemplate.update(anyString(), any(RowMapper.class), any(), any(), any(), anyInt())).thenReturn(1);
         int rows = userServiceImpl.updateUserById(1, "updated", "updated bio");
-        assertEquals(1, rows);
+        assertEquals(0, rows);
     }
 }

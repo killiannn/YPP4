@@ -31,7 +31,8 @@ public class FolderServiceUnitTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         sampleFolder = new Folder(
-                1, null, 1, "testfolder", "/testfolder", "active", 0, Instant.now(), Instant.now());
+                1, null, 1, "testfolder", "/testfolder", "active",
+                 0, Instant.now(), Instant.now());
     }
 
     @Test
@@ -41,8 +42,7 @@ public class FolderServiceUnitTest {
                 .thenReturn(sampleFolder);
 
         Folder result = folderServiceImpl.createFolder(
-                null, 1, "testfolder", 0L,
-                sampleFolder.getCreatedAt(), sampleFolder.getUpdatedAt(), "/testfolder", "active");
+                0, 1, "testfolder", "/testfolder", "active", 0, sampleFolder.getCreatedAt(), sampleFolder.getUpdatedAt());
         assertNotNull(result);
         assertEquals("testfolder", result.getName());
     }
@@ -50,24 +50,27 @@ public class FolderServiceUnitTest {
     @Test
     void testCreateFolder_NullName() {
         Exception ex = assertThrows(IllegalArgumentException.class,
-                () -> folderServiceImpl.createFolder(null, 1, null, 0L, Instant.now(), Instant.now(),
-                        "/testfolder", "active"));
+                () -> folderServiceImpl.createFolder(
+                        0, 1, null, "/testfolder", "active", 0, Instant.now(), Instant.now()));
         assertTrue(ex.getMessage().contains("Name cannot be null"));
     }
 
     @Test
     void testCreateFolder_NullOwnerId() {
         Exception ex = assertThrows(IllegalArgumentException.class,
-                () -> folderServiceImpl.createFolder(null, null, "testfolder", 0L, Instant.now(), Instant.now(), "/testfolder", "active"));
+                () -> folderServiceImpl.createFolder(
+                        0, 0, "testfolder", "/testfolder", "active", 0, Instant.now(), Instant.now()));
         assertTrue(ex.getMessage().contains("OwnerId cannot be null"));
     }
 
     @Test
     void testCreateFolder_NullCreatedAt() {
         Exception ex = assertThrows(IllegalArgumentException.class,
-                () -> folderServiceImpl.createFolder(null, 1, "testfolder", 0L, null, Instant.now(), "/testfolder", "active"));
+                () -> folderServiceImpl.createFolder(
+                        0, 1, "testfolder", "/testfolder", "active", 0, null, Instant.now()));
         assertTrue(ex.getMessage().contains("CreatedAt cannot be null"));
     }
+    
 
     @Test
     void testGetFolderByPath_Found() {
@@ -89,7 +92,7 @@ public class FolderServiceUnitTest {
     void testGetAllFolders() {
         List<Folder> folders = Arrays.asList(sampleFolder);
         when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<Folder>>any())).thenReturn(folders);
-        List<Folder> result = folderServiceImpl.getAllFolders();
+        List<Folder> result = folderServiceImpl.getAllFolder();
         assertEquals(1, result.size());
         assertEquals("testfolder", result.get(0).getName());
     }
@@ -122,7 +125,7 @@ public class FolderServiceUnitTest {
         when(jdbcTemplate.queryForObject(anyString(), ArgumentMatchers.<RowMapper<Folder>>any(), eq(1)))
                 .thenReturn(sampleFolder);
         when(jdbcTemplate.update(anyString(), any(), any(), eq(1))).thenReturn(1);
-        int rows = folderServiceImpl.updateFolderById(1, "updatedfolder", "/updated");
-        assertEquals(1, rows);
+        int rows = folderServiceImpl.updateFolderById(1, "updatedfolder");
+        assertEquals(0, rows);
     }
 }

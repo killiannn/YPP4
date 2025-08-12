@@ -15,8 +15,8 @@ import com.example.googledrive.service.mapper.UserRowMapper;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
-    private final JdbcTemplate jdbcTemplate = null;
-    private final UserRowMapper userRowMapper = null;
+    private final JdbcTemplate jdbcTemplate;
+    private final UserRowMapper userRowMapper = new UserRowMapper();
 
     @Override
     public User createUser(String Username, String Email,String PasswordHash, Instant LastLogin, Instant CreatedAt,
@@ -34,7 +34,9 @@ public class UserServiceImpl implements UserService {
                 "INSERT INTO Users (Username,Email,LastActive,CreatedAt,PictureUrl) VALUES (?,?,?,?,?,?,?,?)",
                 Username, Email, PasswordHash, java.sql.Timestamp.from(LastLogin), java.sql.Timestamp.from(CreatedAt),
                 PictureUrl, UsedCapacity, Capacity);
-        return getUserByEmail(Email);
+        return getUserById(jdbcTemplate.queryForObject(
+                "SELECT Id FROM Users WHERE Email = ?",
+                Integer.class, Email));
     }
 
     @Override
