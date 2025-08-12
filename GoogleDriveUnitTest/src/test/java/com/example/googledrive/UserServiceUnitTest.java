@@ -38,8 +38,8 @@ public class UserServiceUnitTest {
 
     @Test
     void testCreateUser_Success() {
-        when(jdbcTemplate.update(anyString(), any(), any(), any(), any(), any(), any())).thenReturn(1);
-        when(jdbcTemplate.queryForObject(anyString(), ArgumentMatchers.<RowMapper<User>>any(), eq("test@email.com")))
+        when(jdbcTemplate.update(anyString(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt())).thenReturn(1);
+        when(jdbcTemplate.queryForObject(anyString(), ArgumentMatchers.<RowMapper<User>>any(), eq("test@gmail.com")))
                 .thenReturn(sampleUser);
 
         User result = userServiceImpl.createUser(

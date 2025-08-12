@@ -15,33 +15,54 @@ import com.example.googledrive.service.mapper.FolderRowMapper;
 @Service
 @RequiredArgsConstructor
 public class FolderServiceImpl implements FolderService {
-    private JdbcTemplate jdbcTemplate;
-    public FolderServiceImpl(JdbcTemplate jdbcTemplate) {
-    this.jdbcTemplate = jdbcTemplate;
-}
+    private final JdbcTemplate jdbcTemplate = null;
+    private final FolderRowMapper folderRowMapper = null;
 
-public void create(Folder folder) {
-    String sql = "INSERT INTO Folder (ParentId, OwnerId, Name, Size, CreatedAt, UpdatedAt, Path, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-    jdbcTemplate.update(sql, folder.getParentId(), folder.getOwnerId(), folder.getName(), folder.getSize(), folder.getCreatedAt(), folder.getUpdatedAt(), folder.getPath(), folder.getStatus());
-}
+    @Override
+	public Folder createFolder(int parentId, int ownerId, String name, String path, String status, int size,
+			Instant CreatedAt, Instant UpdatedAt) {
+        if (name == null) {
+            throw new IllegalArgumentException("Name cannot be null");
+        }
+        if (CreatedAt == null) {
+            throw new IllegalArgumentException("CreatedAt cannot be null");
+        }
+        jdbcTemplate.update(
+                "INSERT INTO Folder (ParentId, OwnerId, Name, Size, CreatedAt, UpdatedAt, Path, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                parentId, ownerId, name, size, java.sql.Timestamp.from(CreatedAt), java.sql.Timestamp.from(UpdatedAt), path, status);
+        return getFolderById(jdbcTemplate.queryForObject(
+                "SELECT Id FROM Folder WHERE Path = ?",
+                Integer.class, path));
+	}
 
-public List<Folder> findAll() {
-    String sql = "SELECT * FROM Folder";
-    return jdbcTemplate.query(sql, new FolderRowMapper());
-}
+    @Override
+    public List<Folder> getAllFolder() {
+        String sql = "SELECT * FROM Folder";
+        return jdbcTemplate.query(sql, folderRowMapper);
+    }
 
-public Folder findById(int id) {
-    String sql = "SELECT * FROM Folder WHERE Id = ?";
-    return jdbcTemplate.queryForObject(sql, new FolderRowMapper(), id);
-}
-public void update(Folder folder) {
-    String sql = "UPDATE Folder SET ParentId = ?, OwnerId = ?, Name = ?, Size = ?, CreatedAt = ?, UpdatedAt = ?, Path = ?, Status = ? WHERE Id = ?";
-    jdbcTemplate.update(sql, folder.getParentId(), folder.getOwnerId(), folder.getName(), folder.getSize(), folder.getCreatedAt(), folder.getUpdatedAt(), folder.getPath(), folder.getStatus(), folder.getId());
-}
+    @Override
+    public Folder getFolderById(int id) {
+        String sql = "SELECT * FROM Folder WHERE Id = ?";
+        return jdbcTemplate.queryForObject(sql, folderRowMapper, id);
+    }
+   
+    @Override
+    public int deleteFolderById(int id) {
+        String sql = "DELETE FROM Folder WHERE Id = ?";
+        return jdbcTemplate.update(sql, id);
+    }
 
-public void delete(int id) {
-    String sql = "DELETE FROM Folder WHERE Id = ?";
-    jdbcTemplate.update(sql, id);
-}
+	@Override
+	public int updateFolderById(int id, String Name) {
+        Folder currentFolder = getFolderById(id);
+        currentFolder.setName(Name.isBlank() ? currentFolder.getName() : Name);
+        return jdbcTemplate.update(
+                "UPDATE Folder SET Name = ? WHERE Id = ?",
+                currentFolder.getName(), id);
+        
+	}
+
+	
 }
 
