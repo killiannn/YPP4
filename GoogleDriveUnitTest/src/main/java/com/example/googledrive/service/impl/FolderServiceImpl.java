@@ -33,9 +33,8 @@ public class FolderServiceImpl implements FolderService {
         jdbcTemplate.update(
                 "INSERT INTO Folder (ParentId, OwnerId, Name, Size, CreatedAt, UpdatedAt, Path, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 parentId, ownerId, name, size, java.sql.Timestamp.from(CreatedAt), java.sql.Timestamp.from(UpdatedAt), path, status);
-        return getFolderById(jdbcTemplate.queryForObject(
-                "SELECT Id FROM Folder WHERE Path = ?",
-                Integer.class, path));
+        String selectSql = "SELECT * FROM Folder WHERE Path = ?";
+        return jdbcTemplate.queryForObject(selectSql, folderRowMapper, path);
 	}
 
     @Override

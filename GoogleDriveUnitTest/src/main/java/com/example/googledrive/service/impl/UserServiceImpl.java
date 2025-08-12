@@ -34,9 +34,8 @@ public class UserServiceImpl implements UserService {
                 "INSERT INTO Users (Username,Email,LastActive,CreatedAt,PictureUrl) VALUES (?,?,?,?,?,?,?,?)",
                 Username, Email, PasswordHash, java.sql.Timestamp.from(LastLogin), java.sql.Timestamp.from(CreatedAt),
                 PictureUrl, UsedCapacity, Capacity);
-        return getUserById(jdbcTemplate.queryForObject(
-                "SELECT Id FROM Users WHERE Email = ?",
-                Integer.class, Email));
+        String selectSql = "SELECT * FROM users WHERE email = ?";
+        return jdbcTemplate.queryForObject(selectSql, userRowMapper, Email);
     }
 
     @Override

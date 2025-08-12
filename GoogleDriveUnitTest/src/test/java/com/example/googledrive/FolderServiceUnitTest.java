@@ -1,6 +1,9 @@
 package com.example.googledrive;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import java.time.Instant;
@@ -40,7 +43,9 @@ public class FolderServiceUnitTest {
         when(jdbcTemplate.update(anyString(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(1);
         when(jdbcTemplate.queryForObject(anyString(), ArgumentMatchers.<RowMapper<Folder>>any(), eq("/testfolder")))
                 .thenReturn(sampleFolder);
-
+        // Mock the queryForObject(String, Class, Object...) overload for Integer return
+        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), any(Object[].class)))
+                .thenReturn(1);
         Folder result = folderServiceImpl.createFolder(
                 0, 1, "testfolder", "/testfolder", "active", 0, sampleFolder.getCreatedAt(), sampleFolder.getUpdatedAt());
         assertNotNull(result);
