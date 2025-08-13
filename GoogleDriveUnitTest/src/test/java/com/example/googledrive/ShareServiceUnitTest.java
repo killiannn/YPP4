@@ -17,8 +17,8 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
+import com.example.googledrive.domain.Share;
 import com.example.googledrive.service.impl.ShareServiceImpl;
-import com.example.googledrive.entity.Share;
 
 public class ShareServiceUnitTest {
     @Mock

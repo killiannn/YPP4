@@ -8,9 +8,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
-import com.example.googledrive.entity.User;
+
+import com.example.googledrive.domain.User;
 import com.example.googledrive.service.interf.UserService;
-import com.example.googledrive.service.mapper.UserRowMapper;
+import com.example.googledrive.service.mapper.row.UserRowMapper;
 
 @Service
 @RequiredArgsConstructor

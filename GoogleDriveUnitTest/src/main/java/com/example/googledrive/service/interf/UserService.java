@@ -2,7 +2,8 @@ package com.example.googledrive.service.interf;
 
 import java.time.Instant;
 import java.util.List;
-import com.example.googledrive.entity.User;
+
+import com.example.googledrive.domain.User;
 
 public interface UserService {
 
