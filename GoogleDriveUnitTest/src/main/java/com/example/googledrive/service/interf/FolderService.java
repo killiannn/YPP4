@@ -7,15 +7,19 @@ import com.example.googledrive.dto.FolderDTO;
 
 public interface FolderService {
 
-    FolderDTO getFolderById(int id);
+    FolderDTO createFolder(int parentId, int ownerId, String name, int size, String path, String status,  Instant CreatedAt, Instant UpdatedAt);
 
     List<FolderDTO> getAllFolder();
+
+    FolderDTO getFolderById(int id);
+
+    FolderDTO getFolderByPath(String path);
 
     int updateFolderById(int id, String Name);
 
     int deleteFolderById(int id);
 
-    FolderDTO createFolder(int parentId, int ownerId, String name, int size, String path, String status,  Instant CreatedAt, Instant UpdatedAt);
+    
 
 
 }

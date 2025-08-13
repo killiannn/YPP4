@@ -3,7 +3,7 @@ package com.example.googledrive.service.impl;
 import com.example.googledrive.dto.FolderDTO;
 import com.example.googledrive.domain.Folder;
 import com.example.googledrive.service.mapper.dto.FolderDTOMapper;
-import com.example.googledrive.repository.interf.FolderRepository;
+import com.example.googledrive.repository.impl.FolderRepositoryImpl;
 import com.example.googledrive.service.interf.FolderService;
 import org.springframework.stereotype.Service;
 
@@ -14,10 +14,10 @@ import java.util.stream.Collectors;
 @Service
 public class FolderServiceImpl implements FolderService {
 
-    private final FolderRepository folderRepository;
+    private final FolderRepositoryImpl folderRepository;
     private final FolderDTOMapper folderDTOMapper;
 
-    public FolderServiceImpl(FolderRepository folderRepository, FolderDTOMapper folderDTOMapper) {
+    public FolderServiceImpl(FolderRepositoryImpl folderRepository, FolderDTOMapper folderDTOMapper) {
         this.folderRepository = folderRepository;
         this.folderDTOMapper = folderDTOMapper;
     }
