@@ -19,8 +19,8 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
+import com.example.googledrive.domain.User;
 import com.example.googledrive.service.impl.UserServiceImpl;
-import com.example.googledrive.entity.User;
 
 public class UserServiceUnitTest {
 

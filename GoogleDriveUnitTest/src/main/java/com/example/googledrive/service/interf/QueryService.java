@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.example.googledrive.entity.User;
-import com.example.googledrive.entity.Folder;
-import com.example.googledrive.entity.SearchHistory;
+import com.example.googledrive.domain.Folder;
+import com.example.googledrive.domain.SearchHistory;
+import com.example.googledrive.domain.User;
 
 public interface QueryService {
     List<User> getUserInformation(int userId);

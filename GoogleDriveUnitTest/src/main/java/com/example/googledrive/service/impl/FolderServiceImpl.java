@@ -8,14 +8,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
-import com.example.googledrive.entity.Folder;
+
+import com.example.googledrive.domain.Folder;
 import com.example.googledrive.service.interf.FolderService;
-import com.example.googledrive.service.mapper.FolderRowMapper;
+import com.example.googledrive.service.mapper.row.FolderRowMapper;
 
 @Service
 @RequiredArgsConstructor
 public class FolderServiceImpl implements FolderService {
-    private final JdbcTemplate jdbcTemplate;
+    private final JdbcTemplate jdbcTemplate = null;
     private final FolderRowMapper folderRowMapper = new FolderRowMapper();
 
     @Override

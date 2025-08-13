@@ -17,8 +17,8 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
+import com.example.googledrive.domain.Folder;
 import com.example.googledrive.service.impl.FolderServiceImpl;
-import com.example.googledrive.entity.Folder;
 
 public class FolderServiceUnitTest {
 
