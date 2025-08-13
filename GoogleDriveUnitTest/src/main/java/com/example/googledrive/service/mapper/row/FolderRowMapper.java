@@ -2,6 +2,7 @@ package com.example.googledrive.service.mapper.row;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 
 import com.example.googledrive.domain.Folder;
 
@@ -14,11 +15,11 @@ public class FolderRowMapper extends BaseRowMapper<Folder> {
                 rs.getInt("ParentId"),
                 rs.getInt("OwnerId"),
                 rs.getString("Name"),
+                rs.getInt("Size"),
                 rs.getString("Path"),
                 rs.getString("Status"),
-                rs.getInt("Size"),
-                rs.getTimestamp("CreatedAt").toInstant(),
-                rs.getTimestamp("UpdatedAt").toInstant());
+                rs.getTimestamp("CreatedAt") != null ? rs.getTimestamp("CreatedAt").toInstant() : null,
+                rs.getTimestamp("UpdatedAt") != null ? rs.getTimestamp("UpdatedAt").toInstant() : null);
     }
 
 }
