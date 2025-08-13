@@ -1,76 +1,80 @@
 package com.example.googledrive.service.impl;
 
-import java.time.Instant;
-import java.util.List;
-
-import org.springframework.jdbc.core.JdbcTemplate;
-
+import com.example.googledrive.dto.FolderDTO;
+import com.example.googledrive.domain.Folder;
+import com.example.googledrive.service.mapper.dto.FolderDTOMapper;
+import com.example.googledrive.repository.interf.FolderRepository;
+import com.example.googledrive.service.interf.FolderService;
 import org.springframework.stereotype.Service;
 
-import lombok.RequiredArgsConstructor;
-
-import com.example.googledrive.domain.Folder;
-import com.example.googledrive.service.interf.FolderService;
-import com.example.googledrive.service.mapper.row.FolderRowMapper;
+import java.time.Instant;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class FolderServiceImpl implements FolderService {
-    private final JdbcTemplate jdbcTemplate = null;
-    private final FolderRowMapper folderRowMapper = new FolderRowMapper();
+
+    private final FolderRepository folderRepository;
+    private final FolderDTOMapper folderDTOMapper;
+
+    public FolderServiceImpl(FolderRepository folderRepository, FolderDTOMapper folderDTOMapper) {
+        this.folderRepository = folderRepository;
+        this.folderDTOMapper = folderDTOMapper;
+    }
 
     @Override
-	public Folder createFolder(int parentId, int ownerId, String name, String path, String status, int size,
-			Instant CreatedAt, Instant UpdatedAt) {
-        if (name == null) {
+    public FolderDTO createFolder(FolderDTO folderDTO) {
+        if (folderDTO.getName() == null) {
             throw new IllegalArgumentException("Name cannot be null");
         }
-        if (CreatedAt == null) {
-            throw new IllegalArgumentException("CreatedAt cannot be null");
-        }
-        if (ownerId <= 0) {
+        if (folderDTO.getOwnerId() == null) {
             throw new IllegalArgumentException("OwnerId cannot be null");
         }
-        jdbcTemplate.update(
-                "INSERT INTO Folder (ParentId, OwnerId, Name, Size, CreatedAt, UpdatedAt, Path, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                parentId, ownerId, name, size, java.sql.Timestamp.from(CreatedAt), java.sql.Timestamp.from(UpdatedAt), path, status);
-        String selectSql = "SELECT * FROM Folder WHERE Path = ?";
-        return jdbcTemplate.queryForObject(selectSql, folderRowMapper, path);
-	}
-
-    @Override
-    public List<Folder> getAllFolder() {
-        String sql = "SELECT * FROM Folder";
-        return jdbcTemplate.query(sql, folderRowMapper);
+        if (folderDTO.getCreatedAt() == null) {
+            folderDTO.setCreatedAt(Instant.now());
+        }
+        Folder folder = folderDTOMapper.toEntity(folderDTO);
+        Folder createdFolder = folderRepository.create(folder);
+        return folderDTOMapper.toDTO(createdFolder);
     }
 
     @Override
-    public Folder getFolderById(int id) {
-        String sql = "SELECT * FROM Folder WHERE Id = ?";
-        return jdbcTemplate.queryForObject(sql, folderRowMapper, id);
+    public List<FolderDTO> getAllFolders() {
+        return folderRepository.findAll().stream()
+                .map(folderDTOMapper::toDTO)
+                .collect(Collectors.toList());
     }
-   
+
     @Override
-    public int deleteFolderById(int id) {
-        String sql = "DELETE FROM Folder WHERE Id = ?";
-        return jdbcTemplate.update(sql, id);
+    public FolderDTO getFolderById(Integer id) {
+        Folder folder = folderRepository.findById(id);
+        return folderDTOMapper.toDTO(folder);
     }
 
-	@Override
-	public int updateFolderById(int id, String Name) {
-        Folder currentFolder = getFolderById(id);
-        currentFolder.setName(Name.isBlank() ? currentFolder.getName() : Name);
-        return jdbcTemplate.update(
-                "UPDATE Folder SET Name = ? WHERE Id = ?",
-                currentFolder.getName(), id);
-        
-	}
+    @Override
+    public FolderDTO getFolderByPath(String path) {
+        Folder folder = folderRepository.findByPath(path);
+        return folderDTOMapper.toDTO(folder);
+    }
 
-	public Folder getFolderByPath(String string) {
-        String sql = "SELECT * FROM Folder WHERE Path = ?";
-        return jdbcTemplate.queryForObject(sql, folderRowMapper, string);
-	}
+    @Override
+    public FolderDTO updateFolderById(Integer id, FolderDTO folderDTO) {
+        if (folderDTO.getName() == null) {
+            throw new IllegalArgumentException("Name cannot be null");
+        }
+        int rowsAffected = folderRepository.update(id, folderDTO.getName(), folderDTO.getPath());
+        if (rowsAffected == 0) {
+            throw new IllegalStateException("Folder not found with id: " + id);
+        }
+        Folder updatedFolder = folderRepository.findById(id);
+        return folderDTOMapper.toDTO(updatedFolder);
+    }
 
-	
+    @Override
+    public void deleteFolderById(Integer id) {
+        int rowsAffected = folderRepository.delete(id);
+        if (rowsAffected == 0) {
+            throw new IllegalStateException("Folder not found with id: " + id);
+        }
+    }
 }
-

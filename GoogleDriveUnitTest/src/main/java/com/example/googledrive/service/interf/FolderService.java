@@ -3,19 +3,19 @@ package com.example.googledrive.service.interf;
 import java.time.Instant;
 import java.util.List;
 
-import com.example.googledrive.domain.Folder;
+import com.example.googledrive.dto.FolderDTO;
 
 public interface FolderService {
 
-    Folder getFolderById(int id);
+    FolderDTO getFolderById(int id);
 
-    List<Folder> getAllFolder();
+    List<FolderDTO> getAllFolder();
 
     int updateFolderById(int id, String Name);
 
     int deleteFolderById(int id);
 
-    Folder createFolder(int parentId, int ownerId, String name, String path, String status, int size, Instant CreatedAt, Instant UpdatedAt);
+    FolderDTO createFolder(int parentId, int ownerId, String name, int size, String path, String status,  Instant CreatedAt, Instant UpdatedAt);
 
 
 }
