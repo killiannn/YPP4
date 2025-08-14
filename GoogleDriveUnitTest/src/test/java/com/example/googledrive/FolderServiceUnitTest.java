@@ -9,47 +9,41 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
-import org.springframework.context.annotation.ComponentScan;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 
 import com.example.googledrive.dto.FolderDTO;
-import com.example.googledrive.repository.impl.FolderRepositoryImpl;
 import com.example.googledrive.service.impl.FolderServiceImpl;
-import com.example.googledrive.service.interf.FolderService;
-import com.example.googledrive.service.mapper.dto.FolderDTORowMapper;
-import com.example.googledrive.service.mapper.row.FolderRowMapper;
 
-
-@JdbcTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@ComponentScan(basePackages = "com.example.googledrive")
-@Sql(scripts = "/data.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
-
+@SpringBootTest
+@ActiveProfiles("test")
+@Sql(scripts = "/schema.sql")
 public class FolderServiceUnitTest {
+
+    @Autowired
+    private FolderServiceImpl folderService;
+
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    private FolderService folderService;
-    private FolderDTORowMapper folderDTORowMapper;
-    private FolderRowMapper folderRowMapper;
-
     @BeforeEach
     void setUp() {
-        FolderRepositoryImpl folderRepository = new FolderRepositoryImpl();
-        folderService = new FolderServiceImpl(folderRepository, folderDTORowMapper);
+        // Clear existing data to avoid conflicts
+        jdbcTemplate.execute("DELETE FROM Folder");
+        jdbcTemplate.execute("DELETE FROM Users");
     }
 
     @Test
     void testFindByOwnerId_Success() {
         Optional<FolderDTO> result = folderService.findByOwnerId(1);
         assertTrue(result.isPresent());
-        assertEquals(1, result.get().getId());
-        assertEquals("testfolder", result.get().getName());
-        assertEquals("/testfolder", result.get().getPath());
-        assertEquals(100, result.get().getSize());
+        FolderDTO folder = result.get();
+        assertEquals(4, folder.getId());
+        assertEquals("SubFolder3", folder.getName());
+        assertEquals("/1/2/3/4", folder.getPath());
+        assertEquals(0, folder.getSize());
     }
 
     @Test
@@ -64,5 +58,4 @@ public class FolderServiceUnitTest {
                 () -> folderService.findByOwnerId(null));
         assertTrue(ex.getMessage().contains("OwnerId cannot be null"));
     }
-
 }
