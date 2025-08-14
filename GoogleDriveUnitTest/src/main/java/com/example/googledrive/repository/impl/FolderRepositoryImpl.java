@@ -1,59 +1,46 @@
 package com.example.googledrive.repository.impl;
 
-import com.example.googledrive.domain.Folder;
+
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import com.example.googledrive.dto.FolderDTO;
 import com.example.googledrive.repository.interf.FolderRepository;
-import com.example.googledrive.service.mapper.row.FolderRowMapper;
-import java.util.List;
+import com.example.googledrive.service.mapper.row.FolderDTORowMapper;
+
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import lombok.RequiredArgsConstructor;
 
 @Repository
+@RequiredArgsConstructor
 public class FolderRepositoryImpl implements FolderRepository {
 
-    private final JdbcTemplate jdbcTemplate;
-    private final FolderRowMapper folderRowMapper;
-
-    public FolderRepositoryImpl(JdbcTemplate jdbcTemplate, FolderRowMapper folderRowMapper) {
-        this.jdbcTemplate = jdbcTemplate;
-        this.folderRowMapper = folderRowMapper;
-    }
-
+    private final JdbcTemplate jdbcTemplate = null;
+    
     @Override
-    public Folder create(Folder folder) {
-        String sql = "INSERT INTO Folder (ParentId, OwnerId, Name, Size, CreatedAt, UpdatedAt, Path, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        jdbcTemplate.update(sql, folder.getParentId(), folder.getOwnerId(), folder.getName(), folder.getSize(),
-                folder.getCreatedAt(), folder.getUpdatedAt(), folder.getPath(), folder.getStatus());
-        return findByPath(folder.getPath());
-    }
+    public Optional<FolderDTO> findByOwnerId(Integer ownerId) {
+        String sql = """
+                    select
+                        f.id,
+                        f.Name as FolderName,
+                        f.Path as FolderPath,
+                        f.UpdatedAt as FolderUpdateTime,
+                        f.Size
+                    from Folder f
+                    join Users u on f.OwnerId = u.Id
+                    where u.id = ?
+                        and f.Status = 'active'
+                    order by f.UpdatedAt DESC
+                    """;
+        List<FolderDTO> results = jdbcTemplate.query(
+                sql,
+                new BeanPropertyRowMapper<>(FolderDTO.class),
+                ownerId
+        );
 
-    @Override
-    public List<Folder> findAll() {
-        String sql = "SELECT * FROM Folder";
-        return jdbcTemplate.query(sql, folderRowMapper);
-    }
-
-    @Override
-    public Folder findById(Integer id) {
-        String sql = "SELECT * FROM Folder WHERE Id = ?";
-        return jdbcTemplate.queryForObject(sql, folderRowMapper, id);
-    }
-
-    @Override
-    public Folder findByPath(String path) {
-        String sql = "SELECT * FROM Folder WHERE Path = ?";
-        return jdbcTemplate.queryForObject(sql, folderRowMapper, path);
-    }
-
-    @Override
-    public int update(Integer id, String name, String path) {
-        String sql = "UPDATE Folder SET Name = ?, Path = ? WHERE Id = ?";
-        return jdbcTemplate.update(sql, name, path, id);
-    }
-
-    @Override
-    public int delete(Integer id) {
-        String sql = "DELETE FROM Folder WHERE Id = ?";
-        return jdbcTemplate.update(sql, id);
+        return results.stream().findFirst();
     }
 }

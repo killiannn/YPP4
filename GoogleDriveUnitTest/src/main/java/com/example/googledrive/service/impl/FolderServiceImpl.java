@@ -22,7 +22,6 @@ public class FolderServiceImpl implements FolderService {
         this.folderDTOMapper = folderDTOMapper;
     }
 
-    @Override
     public FolderDTO createFolder(FolderDTO folderDTO) {
         if (folderDTO.getName() == null) {
             throw new IllegalArgumentException("Name cannot be null");
@@ -38,14 +37,12 @@ public class FolderServiceImpl implements FolderService {
         return folderDTOMapper.toDTO(createdFolder);
     }
 
-    @Override
     public List<FolderDTO> getAllFolders() {
         return folderRepository.findAll().stream()
                 .map(folderDTOMapper::toDTO)
                 .collect(Collectors.toList());
     }
 
-    @Override
     public FolderDTO getFolderById(Integer id) {
         Folder folder = folderRepository.findById(id);
         return folderDTOMapper.toDTO(folder);
@@ -57,7 +54,6 @@ public class FolderServiceImpl implements FolderService {
         return folderDTOMapper.toDTO(folder);
     }
 
-    @Override
     public FolderDTO updateFolderById(Integer id, FolderDTO folderDTO) {
         if (folderDTO.getName() == null) {
             throw new IllegalArgumentException("Name cannot be null");
@@ -70,7 +66,6 @@ public class FolderServiceImpl implements FolderService {
         return folderDTOMapper.toDTO(updatedFolder);
     }
 
-    @Override
     public void deleteFolderById(Integer id) {
         int rowsAffected = folderRepository.delete(id);
         if (rowsAffected == 0) {
