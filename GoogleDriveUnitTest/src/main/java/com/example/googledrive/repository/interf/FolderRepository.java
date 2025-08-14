@@ -1,11 +1,11 @@
 package com.example.googledrive.repository.interf;
 
 
-import com.example.googledrive.dto.FolderDTO;
+import com.example.googledrive.domain.Folder;
 
 import java.util.Optional;
 
 public interface FolderRepository {
     
-    Optional<FolderDTO> findByOwnerId(Integer ownerId);
+    Optional<Folder> findByOwnerId(Integer ownerId);
 }

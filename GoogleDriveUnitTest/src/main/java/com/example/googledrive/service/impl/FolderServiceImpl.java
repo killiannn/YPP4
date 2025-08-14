@@ -2,74 +2,38 @@ package com.example.googledrive.service.impl;
 
 import com.example.googledrive.dto.FolderDTO;
 import com.example.googledrive.domain.Folder;
-import com.example.googledrive.service.mapper.dto.FolderDTOMapper;
+import com.example.googledrive.service.mapper.dto.FolderDTORowMapper;
+
 import com.example.googledrive.repository.impl.FolderRepositoryImpl;
 import com.example.googledrive.service.interf.FolderService;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.stream.Collectors;
+
+import java.util.Optional;
+
 
 @Service
 public class FolderServiceImpl implements FolderService {
 
     private final FolderRepositoryImpl folderRepository;
-    private final FolderDTOMapper folderDTOMapper;
+    private final FolderDTORowMapper folderDTOMapper;
 
-    public FolderServiceImpl(FolderRepositoryImpl folderRepository, FolderDTOMapper folderDTOMapper) {
+    public FolderServiceImpl(FolderRepositoryImpl folderRepository, FolderDTORowMapper folderDTOMapper) {
         this.folderRepository = folderRepository;
         this.folderDTOMapper = folderDTOMapper;
     }
 
-    public FolderDTO createFolder(FolderDTO folderDTO) {
-        if (folderDTO.getName() == null) {
-            throw new IllegalArgumentException("Name cannot be null");
-        }
-        if (folderDTO.getOwnerId() == null) {
-            throw new IllegalArgumentException("OwnerId cannot be null");
-        }
-        if (folderDTO.getCreatedAt() == null) {
-            folderDTO.setCreatedAt(Instant.now());
-        }
-        Folder folder = folderDTOMapper.toEntity(folderDTO);
-        Folder createdFolder = folderRepository.create(folder);
-        return folderDTOMapper.toDTO(createdFolder);
-    }
-
-    public List<FolderDTO> getAllFolders() {
-        return folderRepository.findAll().stream()
-                .map(folderDTOMapper::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    public FolderDTO getFolderById(Integer id) {
-        Folder folder = folderRepository.findById(id);
-        return folderDTOMapper.toDTO(folder);
-    }
-
     @Override
-    public FolderDTO getFolderByPath(String path) {
-        Folder folder = folderRepository.findByPath(path);
-        return folderDTOMapper.toDTO(folder);
-    }
-
-    public FolderDTO updateFolderById(Integer id, FolderDTO folderDTO) {
-        if (folderDTO.getName() == null) {
-            throw new IllegalArgumentException("Name cannot be null");
+    public Optional<FolderDTO> findByOwnerId(Integer ownerId) {
+        Optional<Folder> folderOptional = folderRepository.findByOwnerId(ownerId);
+        if (folderOptional.isPresent()) {
+            Folder folder = folderOptional.get();
+            FolderDTO folderDTO = folderDTOMapper.toDTO(folder);
+            return Optional.of(folderDTO);
         }
-        int rowsAffected = folderRepository.update(id, folderDTO.getName(), folderDTO.getPath());
-        if (rowsAffected == 0) {
-            throw new IllegalStateException("Folder not found with id: " + id);
-        }
-        Folder updatedFolder = folderRepository.findById(id);
-        return folderDTOMapper.toDTO(updatedFolder);
+        return Optional.empty();
+        
+        
     }
-
-    public void deleteFolderById(Integer id) {
-        int rowsAffected = folderRepository.delete(id);
-        if (rowsAffected == 0) {
-            throw new IllegalStateException("Folder not found with id: " + id);
-        }
-    }
+    
 }

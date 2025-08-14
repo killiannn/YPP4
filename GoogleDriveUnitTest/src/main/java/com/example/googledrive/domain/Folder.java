@@ -2,15 +2,14 @@ package com.example.googledrive.domain;
 
 import java.time.Instant;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-
 public class Folder {
     private Integer id;
     private Integer parentId;
