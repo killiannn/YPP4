@@ -17,9 +17,9 @@ public class FolderDTORowMapper extends BaseRowMapper<FolderDTO> {
     protected FolderDTO mapRowInternal(ResultSet rs, int rowNum) throws SQLException {
         FolderDTO folderDTO =  new FolderDTO();
         folderDTO.setId(rs.getInt("Id"));
-        folderDTO.setName(rs.getString("Name"));
         folderDTO.setParentId(rs.getInt("ParentId"));
         folderDTO.setOwnerId(rs.getInt("OwnerId"));
+        folderDTO.setName(rs.getString("Name"));
         folderDTO.setPath(rs.getString("Path"));
         folderDTO.setStatus(rs.getString("Status"));
         folderDTO.setSize(rs.getInt("Size"));
@@ -34,14 +34,14 @@ public class FolderDTORowMapper extends BaseRowMapper<FolderDTO> {
         }
         return new FolderDTO(
                 folder.getId(),
-                folder.getName(),
                 folder.getParentId(),
                 folder.getOwnerId(),
+                folder.getName(),
                 folder.getPath(),
                 folder.getStatus(),
                 folder.getSize(),
-                folder.getUpdatedAt(),
-                folder.getCreatedAt()
+                folder.getCreatedAt(),
+                folder.getUpdatedAt()
         );
     }
 
@@ -49,12 +49,17 @@ public class FolderDTORowMapper extends BaseRowMapper<FolderDTO> {
         if (folderDTO == null) {
             return null;
         }
-        Folder folder = new Folder();
-        folder.setId(folderDTO.getId());
-        folder.setName(folderDTO.getFolderName());
-        folder.setPath(folderDTO.getFolderPath());
-        folder.setUpdatedAt(folderDTO.getFolderUpdateTime());
-        folder.setSize(folderDTO.getSize());
+        Folder folder = new Folder(
+            folderDTO.getId(),
+            folderDTO.getParentId(),
+            folderDTO.getOwnerId(),
+            folderDTO.getName(),
+            folderDTO.getPath(),
+            folderDTO.getStatus(),
+            folderDTO.getSize(),
+            folderDTO.getCreatedAt(),
+            folderDTO.getUpdatedAt()
+        );
         return folder;
     }
 
